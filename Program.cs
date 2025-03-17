@@ -12,8 +12,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Caching.Memory;
 
 
-
-
 #region Load credential data from appsettings.json
 
 // Get the root directory of the application
@@ -178,8 +176,8 @@ public class GoodFoodPlugin
             string menuTime = currentTime switch
             {
                 _ when currentTime >= new TimeSpan(4, 0, 0) && currentTime < new TimeSpan(11, 0, 0) => "breakfast",
-                _ when currentTime >= new TimeSpan(11, 0, 0) && currentTime < new TimeSpan(15, 0, 0) => "Lunch",
-                _ => "Dinner"
+                _ when currentTime >= new TimeSpan(11, 0, 0) && currentTime < new TimeSpan(15, 0, 0) => "lunch",
+                _ => "dinner"
             };
 
             var query = _cn.GetItemQueryIterator<FoodMnu>(
@@ -207,10 +205,10 @@ public class GoodFoodPlugin
 
     [KernelFunction("PlaceOrder")]
     [Description("Places an order and calculates the total amount. " +
-        "Make sure to collect the customer name. Confirm with the customer before proceeding." +
+        "Make sure to collect the customer name. Confirm with the customer with total cost before proceeding." +
         "Only take orders for items that are on the current menu. " +
         "Complete the order by providing to total amount and directing customer to the next windows for payments." +
-        "Move to the next customer")]
+        "Then Move to the next customer")]
     public async Task<string> PlaceOrderAsync(string customerName, int[] menuItemIds, int[] quantities)
     {
         try
@@ -277,7 +275,7 @@ public class GoodFoodPlugin
     }
 
     [KernelFunction("MoveToNextCustomer")]
-    [Description("Move to next customer, Show the current menu and Greets the customer with a welcome message.")]
+    [Description("Move to next customer")]
     public async Task<dynamic> MoveTotheNextCustomer()
     {
         await Task.Delay(3000);
