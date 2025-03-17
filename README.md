@@ -127,7 +127,6 @@ az cosmosdb sql container create \
 
 This will insert each menu item into the `menu` container in Cosmos DB.
 
-Let me know if you need any refinements! 🚀
 
 
 
