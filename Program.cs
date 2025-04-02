@@ -6,7 +6,6 @@ using System.ComponentModel;
 using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
 using Azure;
 using System.Text.Json.Serialization;
-using System.Speech.Synthesis;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Caching.Memory;
@@ -17,6 +16,9 @@ using System.IO;
 using System.Collections.Generic;
 using System.Security.Cryptography;
 using Microsoft.Azure.Cosmos.Serialization.HybridRow;
+using Microsoft.CognitiveServices.Speech;
+using System.Drawing;
+using static System.Net.Mime.MediaTypeNames;
 
 
 #region Load credential data from appsettings.json
@@ -39,6 +41,11 @@ var config = new ConfigurationBuilder()
 string? apiKey = config["ApiSettings:ApiKey"];
 string? apiEndPointUrl = config["ApiSettings:ApiEndPointUrl"];
 string? apiModelName = config["ApiSettings:ApiModelName"];
+
+
+string? SpeechApiKey = config["ApiSettings:SpeechServiceKey"];
+string? SpeechApiRegion = config["ApiSettings:SpeechServiceRegion"];
+
 
 string? cosmosdbUrl = config["CosmosDbSettings:CosmosDbUrl"];
 string? cosmosdbKey = config["CosmosDbSettings:CosmosDbKey"];
@@ -107,20 +114,39 @@ chatHistory.Add(
     }
 );
 
-string? userInput;
+string? userInput=null;
 do
 {
-    //collect user input
 
-    Console.Write("You : ");
-    userInput = Console.ReadLine();
-    if (string.IsNullOrEmpty(userInput))
+    // using speech recorgnition to retrieve user input
+
+    Console.Write($"You :");
+    var speechConfig = SpeechConfig.FromSubscription(SpeechApiKey, SpeechApiRegion);
+    var recognizer = new SpeechRecognizer(speechConfig);
+
+    int _retry = 0;
+    var Audiotranscript = await recognizer.RecognizeOnceAsync();
+
+    if (Audiotranscript.Reason == ResultReason.RecognizedSpeech)
     {
+        userInput = Audiotranscript.Text;
+        Console.Write($" {userInput}\n");
+        chatHistory.AddUserMessage(userInput);
+    }
+    else if (Audiotranscript.Reason == ResultReason.NoMatch)
+    {
+        if (_retry == 3)
+        {
+            userInput = null;
+        }
+        else
+        {
+            userInput = "Hello!";
+            _retry++;
+        }
         continue;
     }
-    //add user input
-
-    chatHistory.AddUserMessage(userInput);
+  
 
 
     //get the response from AI
@@ -144,15 +170,8 @@ do
     // Replace the matched segment with an empty string
 
     string textToRead = Regex.Replace(result.Content, pattern, "\n", RegexOptions.Singleline);
-
-    // Create a new instance of the SpeechSynthesizer.
-
-    using (SpeechSynthesizer synthesizer = new SpeechSynthesizer())
-    {
-        synthesizer.SetOutputToDefaultAudioDevice();
-        synthesizer.SelectVoice("Microsoft David Desktop");
-        synthesizer.Speak(textToRead);
-    }
+    using var synthesizer = new SpeechSynthesizer(speechConfig);
+    var speech = await synthesizer.SpeakTextAsync(textToRead);
 
 
     //add the message from the agent to the chart history
@@ -307,7 +326,7 @@ public class GoodFoodPlugin
 
     }
 
-    [KernelFunction("AddItemFromCurrentOrder")]
+    [KernelFunction("RemoveItemFromCurrentOrder")]
     [Description("Remove a specified item from the current order after confirming with the customer.")]
     public async Task<string> RemoveItemFromCurrentOrder(int itemId, int quantity, string currentOrderId)
     {
@@ -735,6 +754,13 @@ public class GoodFoodPlugin
     }
 }
 
+
+/****************************************************** 
+
+Data Model used in the GoodFoodPlugin
+ 
+ ********************************************************/
+
 public class FoodMnu
 {
     [JsonPropertyName("menuid")]
@@ -815,6 +841,60 @@ an Event Handlers AppendToStreamAsync and SaveViewAsync, which update materializ
  
  ********************************************************/
 
+public enum nEventType
+{
+    None = 0,
+
+    #region Order Management
+
+    NewOrderCreated = 1,
+    AddNewItemAddedToOrder = 2,
+    ItemRemovedfromOrder = 3,
+    OrderCanceled = 4,
+    OrderPaymentProcessed = 6,
+    UpdateCustomerNameOnCurrentOrder = 7,
+
+    #endregion
+
+    #region Menu Management
+
+    NewMenuCreated = 8,
+    #endregion
+
+
+
+}
+
+public class Event<T>
+{
+    public string id { get; set; }
+    public string streamid { get; set; }
+    public int version { get; set; }
+    public string entitytype { get; set; }
+    public string eventtype { get; set; }
+    public T data { get; set; }
+    public DateTime timestamp { get; set; }
+}
+public class EventStream<T>
+{
+    private readonly List<Event<T>> _events;
+
+    public EventStream(string id, int version, IEnumerable<Event<T>> events)
+    {
+        Id = id;
+        Version = version;
+        _events = events.ToList();
+    }
+
+    public string Id { get; private set; }
+
+    public int Version { get; private set; }
+
+    public IEnumerable<Event<T>> Events
+    {
+        get { return _events; }
+    }
+}
 public class EventStore
 {
     private readonly CosmosClient _cl;
@@ -894,36 +974,6 @@ public class EventStore
     }
 }
 
-public class Event<T>
-{
-    public string id { get; set; }
-    public string streamid { get; set; }
-    public int version { get; set; }
-    public string entitytype { get; set; }
-    public string eventtype { get; set; }
-    public T data { get; set; }
-    public DateTime timestamp { get; set; }
-}
-public class EventStream<T>
-{
-    private readonly List<Event<T>> _events;
-
-    public EventStream(string id, int version, IEnumerable<Event<T>> events)
-    {
-        Id = id;
-        Version = version;
-        _events = events.ToList();
-    }
-
-    public string Id { get; private set; }
-
-    public int Version { get; private set; }
-
-    public IEnumerable<Event<T>> Events
-    {
-        get { return _events; }
-    }
-}
 public class View<T>
 {
     public string id { get; set; }
@@ -934,31 +984,6 @@ public class View<T>
     public DateTime timestamp { get; set; }
 
 }
-public enum nEventType
-{
-    None = 0,
-
-    #region Order Management
-
-    NewOrderCreated = 1,
-    AddNewItemAddedToOrder = 2,
-    ItemRemovedfromOrder = 3,
-    OrderCanceled = 4,
-    OrderPaymentProcessed = 6,
-    UpdateCustomerNameOnCurrentOrder = 7,
-
-    #endregion
-
-    #region Menu Management
-
-    NewMenuCreated = 7,
-    #endregion
-
-
-
-}
-
-
 public class EventView
 {
     private readonly CosmosClient _cl;
