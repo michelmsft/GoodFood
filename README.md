@@ -130,14 +130,14 @@ az cosmosdb sql stored-procedure create \
 #### Prerequisites
 
 1. **Install Required Packages**:
-   - Microsoft.SemanticKernel
+   - dotnet add package Microsoft.CognitiveServices.Speech
+   - dotnet add package Microsoft.SemanticKernel
    - Microsoft.SemanticKernel.ChatCompletion
    - Microsoft.Azure.Cosmos
    - System.ComponentModel
    - Microsoft.SemanticKernel.Connectors.AzureOpenAI
    - Azure
    - System.Text.Json.Serialization
-   - System.Speech.Synthesis
    - System.Text.RegularExpressions
    - Microsoft.Extensions.Configuration
    - Microsoft.Extensions.Caching.Memory
@@ -214,71 +214,70 @@ AzureOpenAIPromptExecutionSettings settings = new()
 ```
 #### Step 5: Instantiate Messaging and Chat
 ```csharp
-
-
-// Create Chat History and add our system message
-var chatHistory = new ChatHistory();
-chatHistory.Add(
-    new(){
-        Role = AuthorRole.System,
-        Content = @"You are a virtual drive-thru assistant at GoodFood, helping customers with their orders by providing menu details, 
-        managing their selections, and guiding them through the ordering process. Be polite and brief in your response.
-
-        - Always begin by using this exact message 'Welcome to GoodFood! How can I help you today ?' to welcome the new customer. Then proceed to handle the order.
-        - When handling orders from new customer, you will initialize a new order session before the customer adds items.
-        - Always display the current menu with neatly formatted columns (Menu Item ID, Name (30 characters only), and Price) for easy readability
-        - during your conversation with customer, when they select a menu item, add it to their order using AddItemToCurrentOrder or if they want to remove an item, confirm and update the order using AddItemFromCurrentOrder.
-        - If the customer asks, provide a summary of their current order using  RecapCurrentOrder. 
-        - When finalizing the Order, always ask for the customer’s name. only when you have their name, you will  direct them to the next window for payment and say goodbye.
-        - if for some reasons, customer request to cancel the Order, confirm with the customer before canceling their entire order using CancelCurrentOrder.
-        - you will always clear the screen when the order is completed or canceled using ClearScreen and welcome a new customer.
-        "
-    }
-);
-
-string? userInput;
+string? userInput=null;
 do
 {
-    //collect user input
-    Console.Write("You : ");
-    userInput = Console.ReadLine();
-    if (string.IsNullOrEmpty(userInput))
+
+    // using speech recorgnition to retrieve user input
+
+    Console.Write($"You :");
+    var speechConfig = SpeechConfig.FromSubscription(SpeechApiKey, SpeechApiRegion);
+    var recognizer = new SpeechRecognizer(speechConfig);
+
+    int _retry = 0;
+    var Audiotranscript = await recognizer.RecognizeOnceAsync();
+
+    if (Audiotranscript.Reason == ResultReason.RecognizedSpeech)
     {
+        userInput = Audiotranscript.Text;
+        Console.Write($" {userInput}\n");
+        chatHistory.AddUserMessage(userInput);
+    }
+    else if (Audiotranscript.Reason == ResultReason.NoMatch)
+    {
+        if (_retry == 3)
+        {
+            userInput = null;
+        }
+        else
+        {
+            userInput = "Hello!";
+            _retry++;
+        }
         continue;
     }
-    //add user input
-    chatHistory.AddUserMessage(userInput);
+  
+
 
     //get the response from AI
+
     var result = await chatCompletionService.GetChatMessageContentAsync(
         chatHistory,
         executionSettings: settings,
         kernel: kernel);
 
     //print the LLM response
+
     Console.ForegroundColor = ConsoleColor.Green;
     Console.WriteLine($"GoodFood : {result}");
     Console.ResetColor();
 
+
     // Regex pattern to match text enclosed within triple backticks
+
     string pattern = @"(\n\|.*\n)(\|[-| ]+\n)(\|.*\n)*";
 
     // Replace the matched segment with an empty string
-    string textToRead = Regex.Replace(result.Content, pattern, "\n", RegexOptions.Singleline);
 
-    // Create a new instance of the SpeechSynthesizer.
-    using (SpeechSynthesizer synthesizer = new SpeechSynthesizer())
-    {
-        synthesizer.SetOutputToDefaultAudioDevice();
-        synthesizer.SelectVoice("Microsoft David Desktop");
-        synthesizer.Speak(textToRead);
-    }
+    string textToRead = Regex.Replace(result.Content, pattern, "\n", RegexOptions.Singleline);
+    using var synthesizer = new SpeechSynthesizer(speechConfig);
+    var speech = await synthesizer.SpeakTextAsync(textToRead);
+
 
     //add the message from the agent to the chart history
+
     chatHistory.AddMessage(result.Role, result.Content ?? string.Empty);
 } while (!string.IsNullOrEmpty(userInput));
-
-
 ```
 
 #### Step 6: Implement GoodFoodPlugin Class
