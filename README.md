@@ -65,6 +65,64 @@ az cosmosdb sql database create \
      --partition-key-path "/streamid" \
      --throughput 400
  ```
+
+### Step 6: Create a stored procedure called `SpAppendToStream` in the `events` container
+#### 6.1 Create the JavaScript File
+Save the following code in a file named spAppendToStream.js:
+``` javascript
+function appendToStream(streamId, event) {
+    try {
+        var versionQuery = {
+            'query': 'SELECT VALUE Max(e.version) FROM events e WHERE e.streamid = @streamId',
+            'parameters': [{ 'name': '@streamId', 'value': streamId }]
+        };
+
+        const isAccepted = __.queryDocuments(__.getSelfLink(), versionQuery,
+            function (err, items, options) {
+                if (err) {
+                    __.response.setBody({ error: "Query Failed: " + err.message });
+                    return;
+                }
+
+                var currentVersion = (items && items.length && items[0] !== null) ? items[0] : -1;
+                var newVersion = currentVersion + 1;
+
+                event.version = newVersion;
+                event.streamid = streamId;
+
+                const accepted = __.createDocument(__.getSelfLink(), event, function (err, createdDoc) {
+                    if (err) {
+                        __.response.setBody({ error: "Insert Failed: " + err.message });
+                        return;
+                    }
+                    __.response.setBody(createdDoc);
+                });
+
+                if (!accepted) {
+                    __.response.setBody({ error: "Insertion was not accepted." });
+                }
+            });
+
+        if (!isAccepted) __.response.setBody({ error: "The query was not accepted by the server." });
+    } catch (e) {
+        __.response.setBody({ error: "Unexpected error: " + e.message });
+    }
+}
+
+```
+#### 6.2 Deploy the Stored Procedure Using Azure CLI
+Run the following command in the terminal (ensure you have az CLI installed and logged in):
+```sh
+az cosmosdb sql stored-procedure create \
+    --account-name $COSMOS_DB_ACCOUNT \
+    --resource-group $RESOURCE_GROUP \
+    --database-name $DB_NAME \
+    --container-name "events" \
+    --name "SpAppendToStream" \
+    --body "$(cat spAppendToStream.js)"
+
+```
+
 ## Phase 2: FrontEnd Fast Food ops using a .Net Console app 
 
 ### Step-by-Step Guide to Implementing GoodFood Virtual Drive-Thru Assistant
