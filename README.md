@@ -1,4 +1,4 @@
-# Fast Food Drive thru Operator Ai Agent with Semantic Kernel and GPT 4o mini
+# Fast Food Drive thru Operator Ai Agent with Semantic Kernel and GPT 3.5 Turbo
 
 ### **Fast Food Drive-Thru Operator AI Agent**  
 
