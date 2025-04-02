@@ -99,9 +99,9 @@ if (string.IsNullOrEmpty(apiEndPointUrl) || string.IsNullOrEmpty(apiKey) || stri
     return;
 }
 #endregion
-
+```
 #### Step 2: Build the Kernel
-
+```csharp
 #region Build the Kernel
 
 // Create a kernel with Azure OpenAI chat completion
@@ -116,13 +116,14 @@ Kernel kernel = builder.Build();
 var chatCompletionService = kernel.GetRequiredService<IChatCompletionService>();
 
 #endregion
-
+```
 #### Step 3: Add a Plugin
-
+```csharp
 // Add a plugin 
 kernel.Plugins.AddFromType<GoodFoodPlugin>("DriveThru");
-
+```
 #### Step 4: Enable Planning
+```csharp
 #region Enable planning
 
 AzureOpenAIPromptExecutionSettings settings = new()
@@ -132,8 +133,9 @@ AzureOpenAIPromptExecutionSettings settings = new()
 };
 
 #endregion
-
+```
 #### Step 5: Instantiate Messaging and Chat
+```csharp
 #region Instantiate messaging and chat
 
 // Create Chat History and add our system message
@@ -199,9 +201,9 @@ do
 } while (!string.IsNullOrEmpty(userInput));
 
 #endregion
-
+```
 #### Step 6: Implement GoodFoodPlugin Class
-
+```csharp
 public class GoodFoodPlugin
 {
     private readonly EventStore _estore;
@@ -511,7 +513,7 @@ public class GoodFoodPlugin
                     new MnuItem { MenuItemId = 16, Name = "Chicken Caesar Wrap", Description = "Wrap with chicken, lettuce, and Caesar dressing", Price = 8.99m },
                     new MnuItem { MenuItemId = 17, Name = "BLT Sandwich", Description = "Bacon, lettuce, and tomato sandwich", Price = 6.99m },
                     new MnuItem { MenuItemId = 
-
+```
 
 ### **How It Works (Flow)**
 1. Load credentials from `appsettings.json`.
