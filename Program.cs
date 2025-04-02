@@ -106,6 +106,7 @@ chatHistory.Add(
         - When handling orders from new customer, you will initialize a new order session before the customer adds items.
         - Always display the current menu with neatly formatted columns (Menu Item ID, Name (30 characters only), and Price) for easy readability
         - during your conversation with customer, when they select a menu item, add it to their order using AddItemToCurrentOrder or if they want to remove an item, confirm and update the order using AddItemFromCurrentOrder.
+        - if customer ask for a menu item that is not on the current menu, suggest them the closest one on the current menu.
         - If the customer asks, provide a summary of their current order using  RecapCurrentOrder. 
         - When finalizing the Order, always ask for the customer’s name. only when you have their name, you will  direct them to the next window for payment and say goodbye.
         - if for some reasons, customer request to cancel the Order, confirm with the customer before canceling their entire order using CancelCurrentOrder.
@@ -114,17 +115,18 @@ chatHistory.Add(
     }
 );
 
+int _retry = 0;
 string? userInput=null;
 do
 {
 
     // using speech recorgnition to retrieve user input
 
-    Console.Write($"You :");
+    Console.Write($"\nYou :");
     var speechConfig = SpeechConfig.FromSubscription(SpeechApiKey, SpeechApiRegion);
     var recognizer = new SpeechRecognizer(speechConfig);
 
-    int _retry = 0;
+
     var Audiotranscript = await recognizer.RecognizeOnceAsync();
 
     if (Audiotranscript.Reason == ResultReason.RecognizedSpeech)
@@ -139,12 +141,9 @@ do
         {
             userInput = null;
         }
-        else
-        {
-            userInput = "Hello!";
-            _retry++;
-        }
+        _retry++;
         continue;
+
     }
   
 
