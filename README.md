@@ -130,14 +130,14 @@ az cosmosdb sql stored-procedure create \
 #### Prerequisites
 
 1. **Install Required Packages**:
-   - Microsoft.SemanticKernel
+   - dotnet add package Microsoft.CognitiveServices.Speech
+   - dotnet add package Microsoft.SemanticKernel
    - Microsoft.SemanticKernel.ChatCompletion
    - Microsoft.Azure.Cosmos
    - System.ComponentModel
    - Microsoft.SemanticKernel.Connectors.AzureOpenAI
    - Azure
    - System.Text.Json.Serialization
-   - System.Speech.Synthesis
    - System.Text.RegularExpressions
    - Microsoft.Extensions.Configuration
    - Microsoft.Extensions.Caching.Memory
