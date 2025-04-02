@@ -1,5 +1,4 @@
 # Fast Food Drive thru Operator Ai Agent with Semantic Kernel and GPT 3.5 Turbo
-
 ### **Fast Food Drive-Thru Operator AI Agent**  
 
 This AI-powered **Fast Food Drive-Thru Operator** leverages **Semantic Kernel** and **Azure OpenAI GPT-3.5 turbo** to streamline customer interactions, improve efficiency, and automate order processing.  
