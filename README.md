@@ -44,7 +44,27 @@ az cosmosdb sql database create \
     --resource-group $RESOURCE_GROUP \
     --name $DB_NAME
 ```
-
+### Step 4: Create the `events` Container
+ ```sh
+ az cosmosdb sql container create \
+     --account-name $COSMOS_DB_ACCOUNT \
+     --resource-group $RESOURCE_GROUP \
+     --database-name $DB_NAME \
+     --name "events" \
+     --partition-key-path "/streamid" \
+     --throughput 400
+ ```
+ 
+ ### Step 5: Create the `views` Container
+ ```sh
+ az cosmosdb sql container create \
+     --account-name $COSMOS_DB_ACCOUNT \
+     --resource-group $RESOURCE_GROUP \
+     --database-name $DB_NAME \
+     --name "views" \
+     --partition-key-path "/streamid" \
+     --throughput 400
+ ```
 ## Phase 2: FrontEnd Fast Food ops using a .Net Console app 
 
 ### Step-by-Step Guide to Implementing GoodFood Virtual Drive-Thru Assistant
