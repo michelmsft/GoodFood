@@ -858,6 +858,328 @@ public class GoodFoodPlugin
     }
 
 ```
+#### Step 7: Data Model for the GoodFoodPlugin
+```csharp
+public class FoodMnu
+{
+    [JsonPropertyName("menuid")]
+    public string MenuId { get; set; }
+
+    [JsonPropertyName("startingtime")]
+    public string StartingTime { get; set; }
+
+    [JsonPropertyName("endtime")]
+    public string EndTime { get; set; }
+
+    [JsonPropertyName("list")]
+    public List<MnuItem> List { get; set; }
+}
+public class MnuItem
+{
+    [JsonPropertyName("MenuItemId")]
+    public int MenuItemId { get; set; }
+
+    [JsonPropertyName("Name")]
+    public string Name { get; set; }
+
+    [JsonPropertyName("Description")]
+    public string Description { get; set; }
+
+    [JsonPropertyName("Price")]
+    public decimal Price { get; set; }
+}
+
+public class Order
+{
+    [JsonPropertyName("orderid")]
+    public string orderid { get; set; }
+
+    [JsonPropertyName("orderdate")]
+    public string orderdate { get; set; }
+
+    [JsonPropertyName("itemsnumber")]
+    public int itemsnumber { get; set; }
+
+    [JsonPropertyName("total")]
+    public decimal total { get; set; }
+
+    [JsonPropertyName("customernickname")]
+    public string customernickname { get; set; }
+
+    [JsonPropertyName("orderdetails")]
+    public List<OrderDetail> orderdetails { get; set; }
+
+    [JsonPropertyName("iscanceled")]
+    public bool isCanceled { get; set; }
+}
+public class OrderDetail
+{
+    [JsonPropertyName("orderdetailid")]
+    public string orderdetailid { get; set; }
+
+    [JsonPropertyName("menuitemid")]
+    public int menuitemid { get; set; }
+
+    [JsonPropertyName("quantity")]
+    public int quantity { get; set; }
+
+    [JsonPropertyName("unitprice")]
+    public decimal unitprice { get; set; }
+
+    [JsonPropertyName("subtotal")]
+    public decimal subtotal { get; set; }
+}
+```
+
+#### Step 8: Basic Event Sourcing for drivethru operation
+```csharp
+public enum nEventType
+{
+    None = 0,
+
+    #region Order Management
+
+    NewOrderCreated = 1,
+    AddNewItemAddedToOrder = 2,
+    ItemRemovedfromOrder = 3,
+    OrderCanceled = 4,
+    OrderPaymentProcessed = 6,
+    UpdateCustomerNameOnCurrentOrder = 7,
+
+    #endregion
+
+    #region Menu Management
+
+    NewMenuCreated = 8,
+    #endregion
+
+
+
+}
+
+public class Event<T>
+{
+    public string id { get; set; }
+    public string streamid { get; set; }
+    public int version { get; set; }
+    public string entitytype { get; set; }
+    public string eventtype { get; set; }
+    public T data { get; set; }
+    public DateTime timestamp { get; set; }
+}
+public class EventStream<T>
+{
+    private readonly List<Event<T>> _events;
+
+    public EventStream(string id, int version, IEnumerable<Event<T>> events)
+    {
+        Id = id;
+        Version = version;
+        _events = events.ToList();
+    }
+
+    public string Id { get; private set; }
+
+    public int Version { get; private set; }
+
+    public IEnumerable<Event<T>> Events
+    {
+        get { return _events; }
+    }
+}
+public class EventStore
+{
+    private readonly CosmosClient _cl;
+    private Microsoft.Azure.Cosmos.Container _cn;
+    private Database _db;
+    public EventStore()
+    {
+        _cl = new CosmosClient("https://localhost:8081", "C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==");
+        InitializeDatabaseAndContainer().Wait();
+    }
+
+    private async Task InitializeDatabaseAndContainer()
+    {
+        _db = await _cl.CreateDatabaseIfNotExistsAsync("goodfooddb");
+        _cn = _db.CreateContainerIfNotExistsAsync("events", "/streamid").Result;
+    }
+
+
+    public async Task<dynamic> AppendToStreamAsync<T>(string streamId, string eventType, string entityType, T eventData)
+    {
+        try
+        {
+            var eventItem = new Event<T>
+            {
+                id = Guid.NewGuid().ToString(),
+                streamid = streamId,
+                eventtype = eventType,
+                entitytype = typeof(T).Name,
+                data = eventData,
+                timestamp = DateTime.UtcNow
+            };
+
+            var response = await _cn.Scripts.ExecuteStoredProcedureAsync<dynamic>(
+                "SpAppendToStream",
+                new PartitionKey(streamId),
+                new object[] { streamId, eventItem }
+            );
+
+            // Ensure response is a JSON object before returning it
+            if (response.Resource is string responseString)
+            {
+                throw new Exception($"Stored procedure returned an error: {responseString}");
+            }
+
+            return response.Resource;
+        }
+        catch (Exception ex)
+        {
+            return ex.Message.ToString();
+        }
+    }
+    public async Task<EventStream<T>> LoadStreamAsync<T>(string streamId)
+    {
+
+        var sqlQueryText = "SELECT * FROM events e"
+            + " WHERE e.stream.id = @streamId"
+            + " ORDER BY e.stream.version";
+
+        QueryDefinition queryDefinition = new QueryDefinition(sqlQueryText)
+            .WithParameter("@streamId", streamId);
+
+        int version = 0;
+        var events = new List<Event<T>>();
+
+        FeedIterator<Event<T>> feedIterator = _cn.GetItemQueryIterator<Event<T>>(queryDefinition);
+        while (feedIterator.HasMoreResults)
+        {
+            FeedResponse<Event<T>> response = await feedIterator.ReadNextAsync();
+            foreach (var eventWrapper in response)
+            {
+                version = eventWrapper.version;
+                events.Add(eventWrapper);
+            }
+        }
+
+        return new EventStream<T>(streamId, version, events);
+    }
+}
+
+public class View<T>
+{
+    public string id { get; set; }
+    public string streamid { get; set; }
+    public int version { get; set; }
+    public T data { get; set; }
+    public string entitytype { get; set; }
+    public DateTime timestamp { get; set; }
+
+}
+public class EventView
+{
+    private readonly CosmosClient _cl;
+    private Microsoft.Azure.Cosmos.Container _cn;
+    private Database _db;
+    public EventView()
+    {
+
+        _cl = new CosmosClient("https://localhost:8081", "C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==");
+        InitializeDatabaseAndContainer().Wait();
+    }
+
+    private async Task InitializeDatabaseAndContainer()
+    {
+        _db = await _cl.CreateDatabaseIfNotExistsAsync("goodfooddb");
+        _cn = _db.CreateContainerIfNotExistsAsync("views", "/streamid").Result;
+    }
+
+    public async Task<dynamic> SaveViewAsync<T>(string streamId, View<T> view, string? etag)
+    {
+        var partitionKey = new PartitionKey(streamId);
+
+        var item = new View<T>
+        {
+            id = streamId,
+            streamid = streamId,
+            entitytype = typeof(T).Name.ToString(),
+            version = view.version,
+            timestamp = view.timestamp,
+            data = view.data,
+        };
+
+        try
+        {
+            if (etag != null)
+            {
+                var response = await _cn.UpsertItemAsync<View<T>>(item, partitionKey, new ItemRequestOptions
+                {
+                    IfMatchEtag = etag
+                });
+                return response.Resource;
+            }
+            else
+            {
+                var response = await _cn.UpsertItemAsync<View<T>>(item, partitionKey);
+                return response.Resource;
+            }
+
+
+
+        }
+        catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.PreconditionFailed)
+        {
+            return null;
+        }
+    }
+
+    public async Task<(dynamic Resource, string? ETag)> LoadViewAsync<T>(string streamid)
+    {
+        var partitionKey = new PartitionKey(streamid);
+
+        try
+        {
+            var response = await _cn.ReadItemAsync<dynamic>(streamid, partitionKey);
+            return (response.Resource, response.ETag);
+        }
+        catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+        {
+            return (new View<T>(), null);
+        }
+    }
+    public async Task<T?> QueryItemAsync<T>(string query, Dictionary<string, object>? parameters = null)
+    {
+        var queryDefinition = new QueryDefinition(query);
+
+        if (parameters != null)
+        {
+            foreach (var param in parameters)
+            {
+                queryDefinition = queryDefinition.WithParameter(param.Key, param.Value);
+            }
+        }
+
+        var iterator = _cn.GetItemQueryIterator<T>(queryDefinition);
+
+        if (iterator.HasMoreResults)
+        {
+            var response = await iterator.ReadNextAsync();
+            return response.FirstOrDefault();
+        }
+
+        return default;
+    }
+    public async Task<bool> ForceDropEventViewAsync<T>(string streamId, string eventId)
+    {
+        try
+        {
+            await _cn.DeleteItemAsync<T>(eventId, new PartitionKey(streamId));
+            return true;
+        }
+        catch (Exception ex) { return false; }
+    }
+}
+```
 
 ### **How It Works (Flow)**
 1. Load credentials from `appsettings.json`.
