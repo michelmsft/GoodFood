@@ -202,6 +202,7 @@ do
 
 #endregion
 ```
+
 #### Step 6: Implement GoodFoodPlugin Class
 ```csharp
 public class GoodFoodPlugin
@@ -230,6 +231,8 @@ public class GoodFoodPlugin
                 _ => "dinner"
             };
 
+
+
             string query = "SELECT * FROM c WHERE c.data.MenuId = @menuid";
             var parameters = new Dictionary<string, object> { { "@menuid", menuTime } };
 
@@ -253,6 +256,7 @@ public class GoodFoodPlugin
     {
         try
         {
+
             var oid = Guid.NewGuid().ToString();
 
             var newOrder = new Order
@@ -275,15 +279,17 @@ public class GoodFoodPlugin
             await ApplyAsync(res);
             return $"A new order has been initiated for the current customer.  Order ID: {newOrder.orderid}";
         }
+
         catch (Exception ex)
         {
             return "An unexpected error occurred while initiating this order.";
         }
+
     }
 
     [KernelFunction("AddItemToCurrentOrder")]
     [Description("Add a specified menu item to the current order.")]
-    public async Task<string> AddingItemToCurrentOrder(int itemId, int quantity, string currentOrderId)
+    public async Task<string> AddingItemToCurrentOrder(int itemId,int quantity, string currentOrderId)
     {
         try
         {
@@ -322,10 +328,12 @@ public class GoodFoodPlugin
 
             return $"{quantity} {availableMenuItemsName[itemId]} added to the current customer Order ID: {currentOrderId}";
         }
+
         catch (Exception ex)
         {
             return "An unexpected error occurred while initiating this order.";
         }
+
     }
 
     [KernelFunction("AddItemFromCurrentOrder")]
@@ -369,10 +377,12 @@ public class GoodFoodPlugin
 
             return $"{quantity} {availableMenuItemsName[itemId]} removed to the current customer Order ID: {currentOrderId}";
         }
+
         catch (Exception ex)
         {
             return "An unexpected error occurred while initiating this order.";
         }
+
     }
 
     [KernelFunction("RecapCurrentOrder")]
@@ -392,11 +402,14 @@ public class GoodFoodPlugin
             {
                 return null;
             }
+           
         }
+
         catch (Exception ex)
         {
             return $"An unexpected error occurred while retrieving the current order id {currentOrderId}.";
         }
+
     }
 
     [KernelFunction("CancelCurrentOrder")]
@@ -405,6 +418,7 @@ public class GoodFoodPlugin
     {
         try
         {
+
             var res = await _estore.AppendToStreamAsync<dynamic>(
                 currentOrderId,
                 nEventType.OrderCanceled.ToString(),
@@ -414,11 +428,14 @@ public class GoodFoodPlugin
             await ApplyAsync(res);
 
             return $"Your order # {currentOrderId} has been canceled successfully.";
+
         }
+
         catch (Exception ex)
         {
             return $"An unexpected error occurred while canceling the current order id {currentOrderId}.";
         }
+
     }
 
     [KernelFunction("AddCustomerNameToCurrentOrder")]
@@ -447,11 +464,14 @@ public class GoodFoodPlugin
             await ApplyAsync(res);
 
             return $"The name on the order # {currentOrderId} has been updated successfully.";
+
         }
+
         catch (Exception ex)
         {
             return $"An unexpected error occurred while canceling the current order id {currentOrderId}.";
         }
+
     }
 
     [KernelFunction("ClearScreen")]
@@ -470,6 +490,7 @@ public class GoodFoodPlugin
         var mnu = await _eviewstore.QueryItemAsync<View<FoodMnu>>(query, parameters);
         if (mnu == null)
         {
+
             var breakfastMenu = new FoodMnu
             {
                 MenuId = "breakfast",
@@ -498,23 +519,251 @@ public class GoodFoodPlugin
             );
             await ApplyAsync(breakfast_res);
 
+
             var lunchMenu = new FoodMnu
             {
                 MenuId = "lunch",
                 StartingTime = "11:00:00 AM",
                 EndTime = "03:59:59 PM",
                 List = new List<MnuItem>
-                {
-                    new MnuItem { MenuItemId = 11, Name = "Cheeseburger", Description = "Juicy beef burger with cheese", Price = 8.99m },
-                    new MnuItem { MenuItemId = 12, Name = "Grilled Chicken Sandwich", Description = "Grilled chicken sandwich with lettuce and tomato", Price = 7.99m },
-                    new MnuItem { MenuItemId = 13, Name = "Caesar Salad", Description = "Caesar salad with croutons and parmesan", Price = 6.99m },
-                    new MnuItem { MenuItemId = 14, Name = "Turkey Club Sandwich", Description = "Turkey club sandwich with bacon and avocado", Price = 9.99m },
-                    new MnuItem { MenuItemId = 15, Name = "Veggie Wrap", Description = "Wrap with assorted vegetables and hummus", Price = 7.99m },
-                    new MnuItem { MenuItemId = 16, Name = "Chicken Caesar Wrap", Description = "Wrap with chicken, lettuce, and Caesar dressing", Price = 8.99m },
-                    new MnuItem { MenuItemId = 17, Name = "BLT Sandwich", Description = "Bacon, lettuce, and tomato sandwich", Price = 6.99m },
-                    new MnuItem { MenuItemId = 
-```
+            {
+                new MnuItem { MenuItemId = 11, Name = "Cheeseburger", Description = "Juicy beef burger with cheese", Price = 8.99m },
+                new MnuItem { MenuItemId = 12, Name = "Grilled Chicken Sandwich", Description = "Grilled chicken sandwich with lettuce and tomato", Price = 7.99m },
+                new MnuItem { MenuItemId = 13, Name = "Caesar Salad", Description = "Caesar salad with croutons and parmesan", Price = 6.99m },
+                new MnuItem { MenuItemId = 14, Name = "Turkey Club Sandwich", Description = "Turkey club sandwich with bacon and avocado", Price = 9.99m },
+                new MnuItem { MenuItemId = 15, Name = "Veggie Wrap", Description = "Wrap with assorted vegetables and hummus", Price = 7.99m },
+                new MnuItem { MenuItemId = 16, Name = "Chicken Caesar Wrap", Description = "Wrap with chicken, lettuce, and Caesar dressing", Price = 8.99m },
+                new MnuItem { MenuItemId = 17, Name = "BLT Sandwich", Description = "Bacon, lettuce, and tomato sandwich", Price = 6.99m },
+                new MnuItem { MenuItemId = 18, Name = "Tuna Salad Sandwich", Description = "Tuna salad sandwich with lettuce", Price = 7.99m },
+                new MnuItem { MenuItemId = 19, Name = "BBQ Pulled Pork Sandwich", Description = "Pulled pork sandwich with BBQ sauce", Price = 9.99m },
+                new MnuItem { MenuItemId = 20, Name = "Chicken Quesadilla", Description = "Quesadilla with chicken and cheese", Price = 8.99m }
+            }
+            };
 
+            var lunch_res = await _estore.AppendToStreamAsync<FoodMnu>(
+                Guid.NewGuid().ToString(),
+                nEventType.NewMenuCreated.ToString(),
+                "FoodMnu",
+                lunchMenu
+            );
+            await ApplyAsync(lunch_res);
+
+
+            var dinnerMenu = new FoodMnu
+            {
+                MenuId = "dinner",
+                StartingTime = "04:00:00 PM",
+                EndTime = "01:59:59 AM",
+                List = new List<MnuItem>
+            {
+                new MnuItem { MenuItemId = 21, Name = "Grilled Steak with Vegetables", Description = "Grilled steak with a side of vegetables", Price = 15.99m },
+                new MnuItem { MenuItemId = 22, Name = "Spaghetti Bolognese", Description = "Spaghetti with Bolognese sauce", Price = 12.99m },
+                new MnuItem { MenuItemId = 23, Name = "Grilled Salmon with Rice", Description = "Grilled salmon with a side of rice", Price = 14.99m },
+                new MnuItem { MenuItemId = 24, Name = "Chicken Alfredo Pasta", Description = "Pasta with Alfredo sauce and chicken", Price = 13.99m },
+                new MnuItem { MenuItemId = 25, Name = "Beef Tacos", Description = "Tacos with seasoned beef and toppings", Price = 11.99m },
+                new MnuItem { MenuItemId = 26, Name = "Shrimp Scampi", Description = "Shrimp scampi with garlic butter sauce", Price = 16.99m },
+                new MnuItem { MenuItemId = 27, Name = "BBQ Ribs", Description = "BBQ ribs with a side of coleslaw", Price = 17.99m },
+                new MnuItem { MenuItemId = 28, Name = "Chicken Parmesan", Description = "Chicken Parmesan with marinara sauce", Price = 14.99m },
+                new MnuItem { MenuItemId = 29, Name = "Beef Stir Fry", Description = "Beef stir fry with vegetables", Price = 13.99m },
+                new MnuItem { MenuItemId = 30, Name = "Vegetable Lasagna", Description = "Lasagna with assorted vegetables", Price = 12.99m }
+            }
+            };
+
+            var dinner_res = await _estore.AppendToStreamAsync<FoodMnu>(
+                Guid.NewGuid().ToString(),
+                nEventType.NewMenuCreated.ToString(),
+                "FoodMnu",
+                dinnerMenu
+            );
+            await ApplyAsync(dinner_res);
+
+        }
+    }
+    private async Task ApplyAsync(dynamic @event)
+    {
+
+        var streamId = @event.streamid?.ToString();
+        if (string.IsNullOrWhiteSpace(streamId))
+        {
+            throw new ArgumentException("Stream ID cannot be null or empty.", nameof(@event.streamid));
+        }
+
+        var e = JsonConvert.DeserializeObject<Event<dynamic>>(@event.ToString());
+
+        if (e.entitytype == "FoodMnu")
+        {
+            var mnu_payload = new FoodMnu();
+            var existing_mnu_event = await _eviewstore.LoadViewAsync<View<FoodMnu>>(streamId);
+            dynamic mnu_classObj = existing_mnu_event.Item1;
+            string _etag = existing_mnu_event.Item2;
+
+            FoodMnu exsisting_menu = new FoodMnu();
+
+            if (mnu_classObj.streamid != null)
+            {
+                exsisting_menu = JsonConvert.DeserializeObject<FoodMnu>(mnu_classObj.data.ToString());
+
+                mnu_payload.MenuId = exsisting_menu.MenuId;
+                mnu_payload.StartingTime = exsisting_menu.StartingTime;
+                mnu_payload.EndTime = exsisting_menu.EndTime;
+                mnu_payload.List = exsisting_menu.List;
+            }
+            else
+            {
+                mnu_payload.MenuId = e.data.MenuId;
+                mnu_payload.StartingTime = e.data.StartingTime;
+                mnu_payload.EndTime = e.data.EndTime;
+                mnu_payload.List = e.data.List?.ToObject<List<MnuItem>>() ?? new List<MnuItem>();
+
+            }
+
+            _eviewstore.SaveViewAsync(streamId,
+            new View<FoodMnu>
+            {
+                streamid = e.streamid,
+                entitytype = e.entitytype,
+                data = mnu_payload,
+                timestamp = e.timestamp,
+                version = e.version
+            },
+            _etag);
+        }
+        else
+        {
+            var playload = new Order();
+
+            var r = await _eviewstore.LoadViewAsync<View<Order>>(streamId);
+            dynamic classObj = r.Item1;
+            string etag = r.Item2;
+
+
+            Order v = new Order();
+
+            if (classObj.streamid != null)
+            {
+                v = JsonConvert.DeserializeObject<Order>(classObj.data.ToString());
+
+                playload.orderdetails = new List<OrderDetail>();
+                playload.orderdetails = v.orderdetails;
+                playload.customernickname = v.customernickname;
+                playload.itemsnumber = v.itemsnumber;
+                playload.orderid = v.orderid;
+                playload.orderdate = DateTime.Now.ToString();
+            }
+
+            switch ((nEventType)Enum.Parse(typeof(nEventType), e.eventtype.ToString()))
+            {
+                case nEventType.NewOrderCreated:
+
+                    playload.orderdetails = new List<OrderDetail>();
+                    playload.itemsnumber = e.data.itemsnumber;
+                    playload.orderid = e.data.orderid;
+                    playload.customernickname = e.data.customernickname;
+                    playload.orderdate = DateTime.Now.ToString();
+                    break;
+
+                case nEventType.AddNewItemAddedToOrder:
+
+
+                    playload.orderid = v.orderid;
+                    playload.orderdate = DateTime.Now.ToString();
+                    playload.orderdetails = playload.orderdetails ?? new List<OrderDetail>();
+
+                    var o = JsonConvert.DeserializeObject<OrderDetail>(e.data.ToString());
+
+                    var existingItem = playload.orderdetails.FirstOrDefault(d => d.menuitemid == o.menuitemid);
+
+                    if (existingItem != null)
+                    {
+                        // Update quantity
+                        existingItem.quantity += o.quantity;
+
+                        // Recalculate subtotal for this item
+                        existingItem.subtotal = existingItem.quantity * existingItem.unitprice;
+                    }
+                    else
+                    {
+                        playload.orderdetails.Add(o);
+                    }
+
+                    // Recalculate total order values
+                    playload.total = playload.orderdetails.Sum(d => d.subtotal);
+                    playload.itemsnumber = playload.orderdetails.Sum(d => d.quantity);
+                    break;
+
+                case nEventType.ItemRemovedfromOrder:
+
+                    playload.orderid = v.orderid;
+                    playload.orderdetails = playload.orderdetails ?? new List<OrderDetail>();
+
+                    var or = JsonConvert.DeserializeObject<OrderDetail>(e.data.ToString());
+                    var existingItemRm = playload.orderdetails.FirstOrDefault(p => p.menuitemid == or.menuitemid);
+
+                    if (existingItemRm != null)
+                    {
+                        if (or.quantity >= existingItemRm.quantity)
+                        {
+                            // Remove the item completely
+                            playload.orderdetails.Remove(existingItemRm);
+                        }
+                        else
+                        {
+                            // Decrease quantity
+                            existingItemRm.quantity -= or.quantity;
+
+                            // Recalculate subtotal for this item
+                            existingItemRm.subtotal = existingItemRm.quantity * existingItemRm.unitprice;
+                        }
+                    }
+
+                    playload.total = playload.orderdetails.Sum(d => d.subtotal);
+                    playload.itemsnumber = playload.orderdetails.Sum(d => d.quantity);
+                    playload.orderdate = DateTime.Now.ToString();
+                    // Update order summary
+
+                    break;
+
+                case nEventType.OrderCanceled:
+
+                    playload.orderdetails = playload.orderdetails ?? new List<OrderDetail>();
+                    playload.itemsnumber = v.itemsnumber;
+                    playload.orderid = v.orderid;
+                    playload.total = v.total;
+                    playload.customernickname = v.customernickname;
+                    playload.orderdate = DateTime.Now.ToString();
+                    playload.isCanceled = true;
+                    break;
+
+                case nEventType.UpdateCustomerNameOnCurrentOrder:
+
+                    var o_withname = JsonConvert.DeserializeObject<Order>(e.data.ToString());
+
+                    playload.orderdetails = playload.orderdetails ?? new List<OrderDetail>();
+                    playload.itemsnumber = v.itemsnumber;
+                    playload.customernickname = o_withname.customernickname;
+                    playload.orderid = v.orderid;
+                    playload.orderdate = DateTime.Now.ToString();
+                    playload.isCanceled = false;
+                    break;
+            }
+            _eviewstore.SaveViewAsync(streamId,
+                new View<Order>
+                {
+                    streamid = e.streamid,
+                    entitytype = e.entitytype,
+                    data = playload,
+                    timestamp = e.timestamp,
+                    version = e.version
+                },
+                etag
+            );
+
+        }
+
+
+    }
+}
+```
 ### **How It Works (Flow)**
 1. Load credentials from `appsettings.json`.
 2. Build AI kernel and add `GoodFoodPlugin`.
