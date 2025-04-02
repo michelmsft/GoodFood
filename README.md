@@ -864,13 +864,10 @@ public class FoodMnu
 {
     [JsonPropertyName("menuid")]
     public string MenuId { get; set; }
-
     [JsonPropertyName("startingtime")]
     public string StartingTime { get; set; }
-
     [JsonPropertyName("endtime")]
     public string EndTime { get; set; }
-
     [JsonPropertyName("list")]
     public List<MnuItem> List { get; set; }
 }
@@ -878,13 +875,10 @@ public class MnuItem
 {
     [JsonPropertyName("MenuItemId")]
     public int MenuItemId { get; set; }
-
     [JsonPropertyName("Name")]
     public string Name { get; set; }
-
     [JsonPropertyName("Description")]
     public string Description { get; set; }
-
     [JsonPropertyName("Price")]
     public decimal Price { get; set; }
 }
@@ -893,22 +887,16 @@ public class Order
 {
     [JsonPropertyName("orderid")]
     public string orderid { get; set; }
-
     [JsonPropertyName("orderdate")]
     public string orderdate { get; set; }
-
     [JsonPropertyName("itemsnumber")]
     public int itemsnumber { get; set; }
-
     [JsonPropertyName("total")]
     public decimal total { get; set; }
-
     [JsonPropertyName("customernickname")]
     public string customernickname { get; set; }
-
     [JsonPropertyName("orderdetails")]
     public List<OrderDetail> orderdetails { get; set; }
-
     [JsonPropertyName("iscanceled")]
     public bool isCanceled { get; set; }
 }
@@ -916,16 +904,12 @@ public class OrderDetail
 {
     [JsonPropertyName("orderdetailid")]
     public string orderdetailid { get; set; }
-
     [JsonPropertyName("menuitemid")]
     public int menuitemid { get; set; }
-
     [JsonPropertyName("quantity")]
     public int quantity { get; set; }
-
     [JsonPropertyName("unitprice")]
     public decimal unitprice { get; set; }
-
     [JsonPropertyName("subtotal")]
     public decimal subtotal { get; set; }
 }
@@ -936,25 +920,13 @@ public class OrderDetail
 public enum nEventType
 {
     None = 0,
-
-    #region Order Management
-
     NewOrderCreated = 1,
     AddNewItemAddedToOrder = 2,
     ItemRemovedfromOrder = 3,
     OrderCanceled = 4,
     OrderPaymentProcessed = 6,
     UpdateCustomerNameOnCurrentOrder = 7,
-
-    #endregion
-
-    #region Menu Management
-
     NewMenuCreated = 8,
-    #endregion
-
-
-
 }
 
 public class Event<T>
@@ -970,7 +942,6 @@ public class Event<T>
 public class EventStream<T>
 {
     private readonly List<Event<T>> _events;
-
     public EventStream(string id, int version, IEnumerable<Event<T>> events)
     {
         Id = id;
@@ -979,9 +950,7 @@ public class EventStream<T>
     }
 
     public string Id { get; private set; }
-
     public int Version { get; private set; }
-
     public IEnumerable<Event<T>> Events
     {
         get { return _events; }
@@ -1003,7 +972,6 @@ public class EventStore
         _db = await _cl.CreateDatabaseIfNotExistsAsync("goodfooddb");
         _cn = _db.CreateContainerIfNotExistsAsync("events", "/streamid").Result;
     }
-
 
     public async Task<dynamic> AppendToStreamAsync<T>(string streamId, string eventType, string entityType, T eventData)
     {
@@ -1074,7 +1042,6 @@ public class View<T>
     public T data { get; set; }
     public string entitytype { get; set; }
     public DateTime timestamp { get; set; }
-
 }
 public class EventView
 {
@@ -1123,9 +1090,6 @@ public class EventView
                 var response = await _cn.UpsertItemAsync<View<T>>(item, partitionKey);
                 return response.Resource;
             }
-
-
-
         }
         catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.PreconditionFailed)
         {
@@ -1136,7 +1100,6 @@ public class EventView
     public async Task<(dynamic Resource, string? ETag)> LoadViewAsync<T>(string streamid)
     {
         var partitionKey = new PartitionKey(streamid);
-
         try
         {
             var response = await _cn.ReadItemAsync<dynamic>(streamid, partitionKey);
@@ -1158,7 +1121,6 @@ public class EventView
                 queryDefinition = queryDefinition.WithParameter(param.Key, param.Value);
             }
         }
-
         var iterator = _cn.GetItemQueryIterator<T>(queryDefinition);
 
         if (iterator.HasMoreResults)
@@ -1166,7 +1128,6 @@ public class EventView
             var response = await iterator.ReadNextAsync();
             return response.FirstOrDefault();
         }
-
         return default;
     }
     public async Task<bool> ForceDropEventViewAsync<T>(string streamId, string eventId)
