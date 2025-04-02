@@ -17,7 +17,7 @@ This AI agent enhances the **drive-thru experience** with fast, intelligent, and
 
 ## Phase 1: Backend Database for Fast Food ops
 
-You can use Azure CLI command sequence to create an Azure Cosmos DB account, a database named `goodfooddb`, and two containers (`menu` and `order`) with their respective partition keys.
+You can use Azure CLI command sequence to create an Azure Cosmos DB account, a database named `goodfooddb`, and two containers (`events` and `views`) with their respective partition keys.
 
 ### Step 1: Set Variables
 ```sh
@@ -73,7 +73,7 @@ az cosmosdb sql database create \
 #### Step 1: Load Credential Data from `appsettings.json`
 
 ```csharp
-#region Load credential data from appsettings.json
+
 
 // Get the root directory of the application
 string rootPath = Directory.GetParent(AppContext.BaseDirectory)?.Parent?.Parent?.Parent?.FullName
@@ -98,11 +98,11 @@ if (string.IsNullOrEmpty(apiEndPointUrl) || string.IsNullOrEmpty(apiKey) || stri
     Console.WriteLine("Please check your appsettings.json file for missing or incorrect values.");
     return;
 }
-#endregion
+
 ```
 #### Step 2: Build the Kernel
 ```csharp
-#region Build the Kernel
+
 
 // Create a kernel with Azure OpenAI chat completion
 IKernelBuilder builder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(
@@ -115,7 +115,7 @@ IKernelBuilder builder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(
 Kernel kernel = builder.Build();
 var chatCompletionService = kernel.GetRequiredService<IChatCompletionService>();
 
-#endregion
+
 ```
 #### Step 3: Add a Plugin
 ```csharp
@@ -124,7 +124,7 @@ kernel.Plugins.AddFromType<GoodFoodPlugin>("DriveThru");
 ```
 #### Step 4: Enable Planning
 ```csharp
-#region Enable planning
+
 
 AzureOpenAIPromptExecutionSettings settings = new()
 {
@@ -132,11 +132,11 @@ AzureOpenAIPromptExecutionSettings settings = new()
     Temperature = 0.3
 };
 
-#endregion
+
 ```
 #### Step 5: Instantiate Messaging and Chat
 ```csharp
-#region Instantiate messaging and chat
+
 
 // Create Chat History and add our system message
 var chatHistory = new ChatHistory();
@@ -200,7 +200,7 @@ do
     chatHistory.AddMessage(result.Role, result.Content ?? string.Empty);
 } while (!string.IsNullOrEmpty(userInput));
 
-#endregion
+
 ```
 
 #### Step 6: Implement GoodFoodPlugin Class
@@ -336,249 +336,7 @@ public class GoodFoodPlugin
 
     }
 
-    [KernelFunction("AddItemFromCurrentOrder")]
-    [Description("Remove a specified item from the current order after confirming with the customer.")]
-    public async Task<string> RemoveItemFromCurrentOrder(int itemId, int quantity, string currentOrderId)
-    {
-        try
-        {
-            var menu = await GetMenuItemAsync();
-            if (menu == null || menu.List == null || !menu.List.Any())
-            {
-                return "No menu items are currently available to order.";
-            }
-
-            var availableMenuItems = menu.List.ToDictionary(item => item.MenuItemId, item => item.Price);
-            var availableMenuItemsName = menu.List.ToDictionary(item => item.MenuItemId, item => item.Name);
-            if (!availableMenuItems.ContainsKey(itemId))
-            {
-                return $"Menu item ID {itemId} is not available on the current menu.";
-            }
-
-            decimal price = availableMenuItems[itemId];
-            decimal subtotal = price * quantity;
-
-            var newItem = new OrderDetail
-            {
-                orderdetailid = Guid.NewGuid().ToString(),
-                menuitemid = itemId,
-                quantity = quantity,
-                unitprice = price,
-                subtotal = subtotal
-            };
-
-            var res = await _estore.AppendToStreamAsync<OrderDetail>(
-                currentOrderId,
-                nEventType.ItemRemovedfromOrder.ToString(),
-                typeof(Order).Name,
-                newItem
-            );
-            await ApplyAsync(res);
-
-            return $"{quantity} {availableMenuItemsName[itemId]} removed to the current customer Order ID: {currentOrderId}";
-        }
-
-        catch (Exception ex)
-        {
-            return "An unexpected error occurred while initiating this order.";
-        }
-
-    }
-
-    [KernelFunction("RecapCurrentOrder")]
-    [Description("Provide a summary of the current order, listing selected items and their total cost.")]
-    public async Task<dynamic> GetRecapCurrentOrder(string currentOrderId)
-    {
-        try
-        {
-            string query = "SELECT * FROM c WHERE c.streamid = @streamid";
-            var parameters = new Dictionary<string, object> { { "@streamid", currentOrderId } };
-
-            var cOrder = await _eviewstore.QueryItemAsync<View<Order>>(query, parameters);
-            if (cOrder != null) {
-                return cOrder.data;
-            }
-            else
-            {
-                return null;
-            }
-           
-        }
-
-        catch (Exception ex)
-        {
-            return $"An unexpected error occurred while retrieving the current order id {currentOrderId}.";
-        }
-
-    }
-
-    [KernelFunction("CancelCurrentOrder")]
-    [Description("Cancel the entire order after confirming with the customer.")]
-    public async Task<string> CancelCurrentOrder(string currentOrderId)
-    {
-        try
-        {
-
-            var res = await _estore.AppendToStreamAsync<dynamic>(
-                currentOrderId,
-                nEventType.OrderCanceled.ToString(),
-                typeof(Order).Name,
-                null
-            );
-            await ApplyAsync(res);
-
-            return $"Your order # {currentOrderId} has been canceled successfully.";
-
-        }
-
-        catch (Exception ex)
-        {
-            return $"An unexpected error occurred while canceling the current order id {currentOrderId}.";
-        }
-
-    }
-
-    [KernelFunction("AddCustomerNameToCurrentOrder")]
-    [Description("Add Customer name to the current order.")]
-    public async Task<string> AddCustomerNameToCurrentOrder(string currentOrderId, string customerName)
-    {
-        try
-        {
-            var OrderWithCustomerName = new Order
-            {
-                orderid = currentOrderId,
-                orderdate = DateTime.UtcNow.ToString("yyyy/MM/dd HH:mm:ss"),
-                itemsnumber = 0,
-                total = 0,
-                customernickname = customerName,
-                isCanceled = false,
-                orderdetails = new List<OrderDetail>(),
-            };
-
-            var res = await _estore.AppendToStreamAsync<dynamic>(
-                currentOrderId,
-                nEventType.UpdateCustomerNameOnCurrentOrder.ToString(),
-                typeof(Order).Name,
-                OrderWithCustomerName
-            );
-            await ApplyAsync(res);
-
-            return $"The name on the order # {currentOrderId} has been updated successfully.";
-
-        }
-
-        catch (Exception ex)
-        {
-            return $"An unexpected error occurred while canceling the current order id {currentOrderId}.";
-        }
-
-    }
-
-    [KernelFunction("ClearScreen")]
-    [Description("Clears the console screen and welcome the next customer.")]
-    public void ClearScreen()
-    {
-        Thread.Sleep(2000);
-        Console.Clear();
-    }
-
-    private async Task SeedingMenu()
-    {
-        string query = "SELECT * FROM c WHERE c.entitytype = @entity";
-        var parameters = new Dictionary<string, object> { { "@entity", "FoodMnu" } };
-
-        var mnu = await _eviewstore.QueryItemAsync<View<FoodMnu>>(query, parameters);
-        if (mnu == null)
-        {
-
-            var breakfastMenu = new FoodMnu
-            {
-                MenuId = "breakfast",
-                StartingTime = "04:00:00 AM",
-                EndTime = "10:59:59 AM",
-                List = new List<MnuItem>
-                {
-                    new MnuItem { MenuItemId = 1, Name = "Pancakes with Syrup", Description = "Fluffy pancakes with syrup", Price = 5.99m },
-                    new MnuItem { MenuItemId = 2, Name = "Scrambled Eggs with Toast", Description = "Scrambled eggs with toast", Price = 4.99m },
-                    new MnuItem { MenuItemId = 3, Name = "Bacon and Egg Sandwich", Description = "Bacon and egg sandwich", Price = 6.99m },
-                    new MnuItem { MenuItemId = 4, Name = "French Toast", Description = "French toast with syrup", Price = 5.99m },
-                    new MnuItem { MenuItemId = 5, Name = "Breakfast Burrito", Description = "Burrito with eggs, bacon, and cheese", Price = 7.99m },
-                    new MnuItem { MenuItemId = 6, Name = "Oatmeal with Fruit", Description = "Oatmeal topped with fresh fruit", Price = 4.99m },
-                    new MnuItem { MenuItemId = 7, Name = "Sausage and Egg Muffin", Description = "Muffin with sausage and egg", Price = 5.99m },
-                    new MnuItem { MenuItemId = 8, Name = "Yogurt Parfait", Description = "Yogurt with granola and fruit", Price = 3.99m },
-                    new MnuItem { MenuItemId = 9, Name = "Bagel with Cream Cheese", Description = "Bagel with cream cheese", Price = 3.99m },
-                    new MnuItem { MenuItemId = 10, Name = "Waffles with Berries", Description = "Waffles topped with berries", Price = 6.99m }
-                }
-            };
-
-            var breakfast_res = await _estore.AppendToStreamAsync<FoodMnu>(
-                Guid.NewGuid().ToString(),
-                nEventType.NewMenuCreated.ToString(),
-                "FoodMnu",
-                breakfastMenu
-            );
-            await ApplyAsync(breakfast_res);
-
-
-            var lunchMenu = new FoodMnu
-            {
-                MenuId = "lunch",
-                StartingTime = "11:00:00 AM",
-                EndTime = "03:59:59 PM",
-                List = new List<MnuItem>
-            {
-                new MnuItem { MenuItemId = 11, Name = "Cheeseburger", Description = "Juicy beef burger with cheese", Price = 8.99m },
-                new MnuItem { MenuItemId = 12, Name = "Grilled Chicken Sandwich", Description = "Grilled chicken sandwich with lettuce and tomato", Price = 7.99m },
-                new MnuItem { MenuItemId = 13, Name = "Caesar Salad", Description = "Caesar salad with croutons and parmesan", Price = 6.99m },
-                new MnuItem { MenuItemId = 14, Name = "Turkey Club Sandwich", Description = "Turkey club sandwich with bacon and avocado", Price = 9.99m },
-                new MnuItem { MenuItemId = 15, Name = "Veggie Wrap", Description = "Wrap with assorted vegetables and hummus", Price = 7.99m },
-                new MnuItem { MenuItemId = 16, Name = "Chicken Caesar Wrap", Description = "Wrap with chicken, lettuce, and Caesar dressing", Price = 8.99m },
-                new MnuItem { MenuItemId = 17, Name = "BLT Sandwich", Description = "Bacon, lettuce, and tomato sandwich", Price = 6.99m },
-                new MnuItem { MenuItemId = 18, Name = "Tuna Salad Sandwich", Description = "Tuna salad sandwich with lettuce", Price = 7.99m },
-                new MnuItem { MenuItemId = 19, Name = "BBQ Pulled Pork Sandwich", Description = "Pulled pork sandwich with BBQ sauce", Price = 9.99m },
-                new MnuItem { MenuItemId = 20, Name = "Chicken Quesadilla", Description = "Quesadilla with chicken and cheese", Price = 8.99m }
-            }
-            };
-
-            var lunch_res = await _estore.AppendToStreamAsync<FoodMnu>(
-                Guid.NewGuid().ToString(),
-                nEventType.NewMenuCreated.ToString(),
-                "FoodMnu",
-                lunchMenu
-            );
-            await ApplyAsync(lunch_res);
-
-
-            var dinnerMenu = new FoodMnu
-            {
-                MenuId = "dinner",
-                StartingTime = "04:00:00 PM",
-                EndTime = "01:59:59 AM",
-                List = new List<MnuItem>
-            {
-                new MnuItem { MenuItemId = 21, Name = "Grilled Steak with Vegetables", Description = "Grilled steak with a side of vegetables", Price = 15.99m },
-                new MnuItem { MenuItemId = 22, Name = "Spaghetti Bolognese", Description = "Spaghetti with Bolognese sauce", Price = 12.99m },
-                new MnuItem { MenuItemId = 23, Name = "Grilled Salmon with Rice", Description = "Grilled salmon with a side of rice", Price = 14.99m },
-                new MnuItem { MenuItemId = 24, Name = "Chicken Alfredo Pasta", Description = "Pasta with Alfredo sauce and chicken", Price = 13.99m },
-                new MnuItem { MenuItemId = 25, Name = "Beef Tacos", Description = "Tacos with seasoned beef and toppings", Price = 11.99m },
-                new MnuItem { MenuItemId = 26, Name = "Shrimp Scampi", Description = "Shrimp scampi with garlic butter sauce", Price = 16.99m },
-                new MnuItem { MenuItemId = 27, Name = "BBQ Ribs", Description = "BBQ ribs with a side of coleslaw", Price = 17.99m },
-                new MnuItem { MenuItemId = 28, Name = "Chicken Parmesan", Description = "Chicken Parmesan with marinara sauce", Price = 14.99m },
-                new MnuItem { MenuItemId = 29, Name = "Beef Stir Fry", Description = "Beef stir fry with vegetables", Price = 13.99m },
-                new MnuItem { MenuItemId = 30, Name = "Vegetable Lasagna", Description = "Lasagna with assorted vegetables", Price = 12.99m }
-            }
-            };
-
-            var dinner_res = await _estore.AppendToStreamAsync<FoodMnu>(
-                Guid.NewGuid().ToString(),
-                nEventType.NewMenuCreated.ToString(),
-                "FoodMnu",
-                dinnerMenu
-            );
-            await ApplyAsync(dinner_res);
-
-        }
-    }
+    
     private async Task ApplyAsync(dynamic @event)
     {
 
@@ -764,6 +522,265 @@ public class GoodFoodPlugin
     }
 }
 ```
+##### 6.1 Additional Plugins method
+###### 6.1.1 RemoveItemFromCurrentOrder Method
+```csharp
+[KernelFunction("RemoveItemFromCurrentOrder")]
+    [Description("Remove a specified item from the current order after confirming with the customer.")]
+    public async Task<string> RemoveItemFromCurrentOrder(int itemId, int quantity, string currentOrderId)
+    {
+        try
+        {
+            var menu = await GetMenuItemAsync();
+            if (menu == null || menu.List == null || !menu.List.Any())
+            {
+                return "No menu items are currently available to order.";
+            }
+
+            var availableMenuItems = menu.List.ToDictionary(item => item.MenuItemId, item => item.Price);
+            var availableMenuItemsName = menu.List.ToDictionary(item => item.MenuItemId, item => item.Name);
+            if (!availableMenuItems.ContainsKey(itemId))
+            {
+                return $"Menu item ID {itemId} is not available on the current menu.";
+            }
+
+            decimal price = availableMenuItems[itemId];
+            decimal subtotal = price * quantity;
+
+            var newItem = new OrderDetail
+            {
+                orderdetailid = Guid.NewGuid().ToString(),
+                menuitemid = itemId,
+                quantity = quantity,
+                unitprice = price,
+                subtotal = subtotal
+            };
+
+            var res = await _estore.AppendToStreamAsync<OrderDetail>(
+                currentOrderId,
+                nEventType.ItemRemovedfromOrder.ToString(),
+                typeof(Order).Name,
+                newItem
+            );
+            await ApplyAsync(res);
+
+            return $"{quantity} {availableMenuItemsName[itemId]} removed to the current customer Order ID: {currentOrderId}";
+        }
+
+        catch (Exception ex)
+        {
+            return "An unexpected error occurred while initiating this order.";
+        }
+
+    }
+```
+###### 6.1.2 RecapCurrentOrder Method
+```csharp
+    [KernelFunction("RecapCurrentOrder")]
+    [Description("Provide a summary of the current order, listing selected items and their total cost.")]
+    public async Task<dynamic> GetRecapCurrentOrder(string currentOrderId)
+    {
+        try
+        {
+            string query = "SELECT * FROM c WHERE c.streamid = @streamid";
+            var parameters = new Dictionary<string, object> { { "@streamid", currentOrderId } };
+
+            var cOrder = await _eviewstore.QueryItemAsync<View<Order>>(query, parameters);
+            if (cOrder != null) {
+                return cOrder.data;
+            }
+            else
+            {
+                return null;
+            }
+           
+        }
+
+        catch (Exception ex)
+        {
+            return $"An unexpected error occurred while retrieving the current order id {currentOrderId}.";
+        }
+
+    }
+```
+###### 6.1.3 CancelCurrentOrder Method
+```csharp
+    [KernelFunction("CancelCurrentOrder")]
+    [Description("Cancel the entire order after confirming with the customer.")]
+    public async Task<string> CancelCurrentOrder(string currentOrderId)
+    {
+        try
+        {
+
+            var res = await _estore.AppendToStreamAsync<dynamic>(
+                currentOrderId,
+                nEventType.OrderCanceled.ToString(),
+                typeof(Order).Name,
+                null
+            );
+            await ApplyAsync(res);
+
+            return $"Your order # {currentOrderId} has been canceled successfully.";
+
+        }
+
+        catch (Exception ex)
+        {
+            return $"An unexpected error occurred while canceling the current order id {currentOrderId}.";
+        }
+
+    }
+```
+###### 6.1.4 AddCustomerNameToCurrentOrder Method
+```csharp
+    [KernelFunction("AddCustomerNameToCurrentOrder")]
+    [Description("Add Customer name to the current order.")]
+    public async Task<string> AddCustomerNameToCurrentOrder(string currentOrderId, string customerName)
+    {
+        try
+        {
+            var OrderWithCustomerName = new Order
+            {
+                orderid = currentOrderId,
+                orderdate = DateTime.UtcNow.ToString("yyyy/MM/dd HH:mm:ss"),
+                itemsnumber = 0,
+                total = 0,
+                customernickname = customerName,
+                isCanceled = false,
+                orderdetails = new List<OrderDetail>(),
+            };
+
+            var res = await _estore.AppendToStreamAsync<dynamic>(
+                currentOrderId,
+                nEventType.UpdateCustomerNameOnCurrentOrder.ToString(),
+                typeof(Order).Name,
+                OrderWithCustomerName
+            );
+            await ApplyAsync(res);
+
+            return $"The name on the order # {currentOrderId} has been updated successfully.";
+
+        }
+
+        catch (Exception ex)
+        {
+            return $"An unexpected error occurred while canceling the current order id {currentOrderId}.";
+        }
+
+    }
+```
+###### 6.1.5 ClearScreen Method
+```csharp
+    [KernelFunction("ClearScreen")]
+    [Description("Clears the console screen and welcome the next customer.")]
+    public void ClearScreen()
+    {
+        Thread.Sleep(2000);
+        Console.Clear();
+    }
+```
+###### 6.1.6 Internal private SeedingMenu Method
+```csharp
+    private async Task SeedingMenu()
+    {
+        string query = "SELECT * FROM c WHERE c.entitytype = @entity";
+        var parameters = new Dictionary<string, object> { { "@entity", "FoodMnu" } };
+
+        var mnu = await _eviewstore.QueryItemAsync<View<FoodMnu>>(query, parameters);
+        if (mnu == null)
+        {
+
+            var breakfastMenu = new FoodMnu
+            {
+                MenuId = "breakfast",
+                StartingTime = "04:00:00 AM",
+                EndTime = "10:59:59 AM",
+                List = new List<MnuItem>
+                {
+                    new MnuItem { MenuItemId = 1, Name = "Pancakes with Syrup", Description = "Fluffy pancakes with syrup", Price = 5.99m },
+                    new MnuItem { MenuItemId = 2, Name = "Scrambled Eggs with Toast", Description = "Scrambled eggs with toast", Price = 4.99m },
+                    new MnuItem { MenuItemId = 3, Name = "Bacon and Egg Sandwich", Description = "Bacon and egg sandwich", Price = 6.99m },
+                    new MnuItem { MenuItemId = 4, Name = "French Toast", Description = "French toast with syrup", Price = 5.99m },
+                    new MnuItem { MenuItemId = 5, Name = "Breakfast Burrito", Description = "Burrito with eggs, bacon, and cheese", Price = 7.99m },
+                    new MnuItem { MenuItemId = 6, Name = "Oatmeal with Fruit", Description = "Oatmeal topped with fresh fruit", Price = 4.99m },
+                    new MnuItem { MenuItemId = 7, Name = "Sausage and Egg Muffin", Description = "Muffin with sausage and egg", Price = 5.99m },
+                    new MnuItem { MenuItemId = 8, Name = "Yogurt Parfait", Description = "Yogurt with granola and fruit", Price = 3.99m },
+                    new MnuItem { MenuItemId = 9, Name = "Bagel with Cream Cheese", Description = "Bagel with cream cheese", Price = 3.99m },
+                    new MnuItem { MenuItemId = 10, Name = "Waffles with Berries", Description = "Waffles topped with berries", Price = 6.99m }
+                }
+            };
+
+            var breakfast_res = await _estore.AppendToStreamAsync<FoodMnu>(
+                Guid.NewGuid().ToString(),
+                nEventType.NewMenuCreated.ToString(),
+                "FoodMnu",
+                breakfastMenu
+            );
+            await ApplyAsync(breakfast_res);
+
+
+            var lunchMenu = new FoodMnu
+            {
+                MenuId = "lunch",
+                StartingTime = "11:00:00 AM",
+                EndTime = "03:59:59 PM",
+                List = new List<MnuItem>
+            {
+                new MnuItem { MenuItemId = 11, Name = "Cheeseburger", Description = "Juicy beef burger with cheese", Price = 8.99m },
+                new MnuItem { MenuItemId = 12, Name = "Grilled Chicken Sandwich", Description = "Grilled chicken sandwich with lettuce and tomato", Price = 7.99m },
+                new MnuItem { MenuItemId = 13, Name = "Caesar Salad", Description = "Caesar salad with croutons and parmesan", Price = 6.99m },
+                new MnuItem { MenuItemId = 14, Name = "Turkey Club Sandwich", Description = "Turkey club sandwich with bacon and avocado", Price = 9.99m },
+                new MnuItem { MenuItemId = 15, Name = "Veggie Wrap", Description = "Wrap with assorted vegetables and hummus", Price = 7.99m },
+                new MnuItem { MenuItemId = 16, Name = "Chicken Caesar Wrap", Description = "Wrap with chicken, lettuce, and Caesar dressing", Price = 8.99m },
+                new MnuItem { MenuItemId = 17, Name = "BLT Sandwich", Description = "Bacon, lettuce, and tomato sandwich", Price = 6.99m },
+                new MnuItem { MenuItemId = 18, Name = "Tuna Salad Sandwich", Description = "Tuna salad sandwich with lettuce", Price = 7.99m },
+                new MnuItem { MenuItemId = 19, Name = "BBQ Pulled Pork Sandwich", Description = "Pulled pork sandwich with BBQ sauce", Price = 9.99m },
+                new MnuItem { MenuItemId = 20, Name = "Chicken Quesadilla", Description = "Quesadilla with chicken and cheese", Price = 8.99m }
+            }
+            };
+
+            var lunch_res = await _estore.AppendToStreamAsync<FoodMnu>(
+                Guid.NewGuid().ToString(),
+                nEventType.NewMenuCreated.ToString(),
+                "FoodMnu",
+                lunchMenu
+            );
+            await ApplyAsync(lunch_res);
+
+
+            var dinnerMenu = new FoodMnu
+            {
+                MenuId = "dinner",
+                StartingTime = "04:00:00 PM",
+                EndTime = "01:59:59 AM",
+                List = new List<MnuItem>
+            {
+                new MnuItem { MenuItemId = 21, Name = "Grilled Steak with Vegetables", Description = "Grilled steak with a side of vegetables", Price = 15.99m },
+                new MnuItem { MenuItemId = 22, Name = "Spaghetti Bolognese", Description = "Spaghetti with Bolognese sauce", Price = 12.99m },
+                new MnuItem { MenuItemId = 23, Name = "Grilled Salmon with Rice", Description = "Grilled salmon with a side of rice", Price = 14.99m },
+                new MnuItem { MenuItemId = 24, Name = "Chicken Alfredo Pasta", Description = "Pasta with Alfredo sauce and chicken", Price = 13.99m },
+                new MnuItem { MenuItemId = 25, Name = "Beef Tacos", Description = "Tacos with seasoned beef and toppings", Price = 11.99m },
+                new MnuItem { MenuItemId = 26, Name = "Shrimp Scampi", Description = "Shrimp scampi with garlic butter sauce", Price = 16.99m },
+                new MnuItem { MenuItemId = 27, Name = "BBQ Ribs", Description = "BBQ ribs with a side of coleslaw", Price = 17.99m },
+                new MnuItem { MenuItemId = 28, Name = "Chicken Parmesan", Description = "Chicken Parmesan with marinara sauce", Price = 14.99m },
+                new MnuItem { MenuItemId = 29, Name = "Beef Stir Fry", Description = "Beef stir fry with vegetables", Price = 13.99m },
+                new MnuItem { MenuItemId = 30, Name = "Vegetable Lasagna", Description = "Lasagna with assorted vegetables", Price = 12.99m }
+            }
+            };
+
+            var dinner_res = await _estore.AppendToStreamAsync<FoodMnu>(
+                Guid.NewGuid().ToString(),
+                nEventType.NewMenuCreated.ToString(),
+                "FoodMnu",
+                dinnerMenu
+            );
+            await ApplyAsync(dinner_res);
+
+        }
+    }
+
+```
+
 ### **How It Works (Flow)**
 1. Load credentials from `appsettings.json`.
 2. Build AI kernel and add `GoodFoodPlugin`.
