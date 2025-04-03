@@ -1156,7 +1156,6 @@ public class EventView
 
 ### **Potential Enhancements**
 - **Improve Speech Output**: Support multiple voices and languages.
-- **Enhance Order Management**: Allow updates and cancellations.
 - **Improve UI**: Convert to a web-based chatbot using Blazor.
 
 
