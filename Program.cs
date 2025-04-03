@@ -122,7 +122,7 @@ do
 
     // using speech recorgnition to retrieve user input
 
-    Console.Write($"\nYou :");
+    Console.Write($"You :");
     var speechConfig = SpeechConfig.FromSubscription(SpeechApiKey, SpeechApiRegion);
     var recognizer = new SpeechRecognizer(speechConfig);
 
@@ -142,6 +142,7 @@ do
             userInput = null;
         }
         _retry++;
+        Console.Write($"\n");
         continue;
 
     }
@@ -169,6 +170,9 @@ do
     // Replace the matched segment with an empty string
 
     string textToRead = Regex.Replace(result.Content, pattern, "\n", RegexOptions.Singleline);
+
+    // using speech synthetizer to read aloud the model output
+
     using var synthesizer = new SpeechSynthesizer(speechConfig);
     var speech = await synthesizer.SpeakTextAsync(textToRead);
 
