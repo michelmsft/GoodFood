@@ -1,5 +1,4 @@
 # Fast Food Drive thru Operator Ai Agent with Semantic Kernel and GPT 3.5 Turbo
-
 ### **Fast Food Drive-Thru Operator AI Agent**  
 
 This AI-powered **Fast Food Drive-Thru Operator** leverages **Semantic Kernel** and **Azure OpenAI GPT-3.5 turbo** to streamline customer interactions, improve efficiency, and automate order processing.  
@@ -151,8 +150,6 @@ az cosmosdb sql stored-procedure create \
 #### Step 1: Load Credential Data from `appsettings.json`
 
 ```csharp
-
-
 // Get the root directory of the application
 string rootPath = Directory.GetParent(AppContext.BaseDirectory)?.Parent?.Parent?.Parent?.FullName
                     ?? AppContext.BaseDirectory;
@@ -163,11 +160,13 @@ var config = new ConfigurationBuilder()
     .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
     .Build();
 
+
 // Retrieve values from the configuration
 string? apiKey = config["ApiSettings:ApiKey"];
 string? apiEndPointUrl = config["ApiSettings:ApiEndPointUrl"];
 string? apiModelName = config["ApiSettings:ApiModelName"];
-
+string? SpeechApiKey = config["ApiSettings:SpeechServiceKey"];
+string? SpeechApiRegion = config["ApiSettings:SpeechServiceRegion"];
 string? cosmosdbUrl = config["CosmosDbSettings:CosmosDbUrl"];
 string? cosmosdbKey = config["CosmosDbSettings:CosmosDbKey"];
 
@@ -176,7 +175,6 @@ if (string.IsNullOrEmpty(apiEndPointUrl) || string.IsNullOrEmpty(apiKey) || stri
     Console.WriteLine("Please check your appsettings.json file for missing or incorrect values.");
     return;
 }
-
 ```
 #### Step 2: Build the Kernel
 ```csharp
