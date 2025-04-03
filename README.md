@@ -9,7 +9,9 @@ This AI-powered **Fast Food Drive-Thru Operator** leverages **Semantic Kernel** 
 3. **Voice Responses** – A **.NET Console App** integrates **System Speech Synthesis** to communicate with customers.  
 4. **Custom Plugins** – C# plugins handle database CRUD operations for seamless transactions.
 
-![image](https://github.com/user-attachments/assets/7105ba04-0685-48e0-975c-8311662353a8)
+![image](https://github.com/user-attachments/assets/e61f1162-93d1-4847-a57a-bbb6de614d34)
+
+
 
 
 This AI agent enhances the **drive-thru experience** with fast, intelligent, and voice-driven automation! 
@@ -1154,7 +1156,6 @@ public class EventView
 
 ### **Potential Enhancements**
 - **Improve Speech Output**: Support multiple voices and languages.
-- **Enhance Order Management**: Allow updates and cancellations.
 - **Improve UI**: Convert to a web-based chatbot using Blazor.
 
 
