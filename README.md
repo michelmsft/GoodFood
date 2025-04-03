@@ -131,24 +131,34 @@ az cosmosdb sql stored-procedure create \
 #### Prerequisites
 
 1. **Install Required Packages**:
-   - dotnet add package Microsoft.CognitiveServices.Speech
-   - dotnet add package Microsoft.SemanticKernel
-   - Microsoft.SemanticKernel.ChatCompletion
-   - Microsoft.Azure.Cosmos
-   - System.ComponentModel
-   - Microsoft.SemanticKernel.Connectors.AzureOpenAI
-   - Azure
-   - System.Text.Json.Serialization
-   - System.Text.RegularExpressions
-   - Microsoft.Extensions.Configuration
-   - Microsoft.Extensions.Caching.Memory
-   - System.Net
-   - Newtonsoft.Json
-   - System.IO
-   - System.Collections.Generic
-   - System.Security.Cryptography
-   - Microsoft.Azure.Cosmos.Serialization.HybridRow
-
+   - dotnet add package Microsoft.CognitiveServices.Speech 1.43.0
+   - dotnet add package Microsoft.SemanticKernel 1.35.0
+   - dotnet add package Microsoft.Azure.Cosmos 3.36.0
+   - dotnet add package Microsoft.Extensions.Configuration 9.0.3
+   - dotnet add package Microsoft.Extensions.Configuration.json 9.0.3
+   - dotnet add package Microsoft.Extensions.Caching.Memory 9.0.3
+2. **import libraries**:
+   - using Microsoft.SemanticKernel;
+   - using Microsoft.SemanticKernel.ChatCompletion;
+   - using Microsoft.Azure.Cosmos;
+   - using System.ComponentModel;
+   - using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
+   - using Azure;
+   - using System.Text.Json.Serialization;
+   - using System.Text.RegularExpressions;
+   - using Microsoft.Extensions.Configuration;
+   - using Microsoft.Extensions.Caching.Memory;
+   - using System.Net;
+   - using static GoodFoodPlugin;
+   - using Newtonsoft.Json;
+   - using System.IO;
+   - using System.Collections.Generic;
+   - using System.Security.Cryptography;
+   - using Microsoft.Azure.Cosmos.Serialization.HybridRow;
+   - using Microsoft.CognitiveServices.Speech;
+   - using System.Drawing;
+   - using static System.Net.Mime.MediaTypeNames;
+   
 #### Step 1: Load Credential Data from `appsettings.json`
 
 ```csharp
