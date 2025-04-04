@@ -79,56 +79,59 @@ You can absolutely deploy your event sourcing backend database to your own Cosmo
 
 You will install the required .net packages  and import the following libraries to your console app program.cs code.
 
-   - dotnet add package Microsoft.CognitiveServices.Speech 1.43.0
-   - dotnet add package Microsoft.SemanticKernel 1.35.0
-   - dotnet add package Microsoft.Azure.Cosmos 3.36.0
-   - dotnet add package Microsoft.Extensions.Configuration 9.0.3
-   - dotnet add package Microsoft.Extensions.Configuration.json 9.0.3
-   - dotnet add package Microsoft.Extensions.Caching.Memory 9.0.3
+- dotnet add package Microsoft.CognitiveServices.Speech 1.43.0
+- dotnet add package Microsoft.SemanticKernel 1.35.0
+- dotnet add package Microsoft.Azure.Cosmos 3.36.0
+- dotnet add package Microsoft.Extensions.Configuration 9.0.3
+- dotnet add package Microsoft.Extensions.Configuration.json 9.0.3
+- dotnet add package Microsoft.Extensions.Caching.Memory 9.0.3
      
 2. **import libraries**:
+
+```csharp
+using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel.ChatCompletion;
+using Microsoft.Azure.Cosmos;
+using System.ComponentModel;
+using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
+using Azure;
+using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Caching.Memory;
+using System.Net;
+using static GoodFoodPlugin;
+using Newtonsoft.Json;
+using System.IO;
+using System.Collections.Generic;
+using System.Security.Cryptography;
+using Microsoft.Azure.Cosmos.Serialization.HybridRow;
+using Microsoft.CognitiveServices.Speech;
+using System.Drawing;
+using static System.Net.Mime.MediaTypeNames;
+```  
    
-   - using Microsoft.SemanticKernel;
-   - using Microsoft.SemanticKernel.ChatCompletion;
-   - using Microsoft.Azure.Cosmos;
-   - using System.ComponentModel;
-   - using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
-   - using Azure;
-   - using System.Text.Json.Serialization;
-   - using System.Text.RegularExpressions;
-   - using Microsoft.Extensions.Configuration;
-   - using Microsoft.Extensions.Caching.Memory;
-   - using System.Net;
-   - using static GoodFoodPlugin;
-   - using Newtonsoft.Json;
-   - using System.IO;
-   - using System.Collections.Generic;
-   - using System.Security.Cryptography;
-   - using Microsoft.Azure.Cosmos.Serialization.HybridRow;
-   - using Microsoft.CognitiveServices.Speech;
-   - using System.Drawing;
-   - using static System.Net.Mime.MediaTypeNames;
   
 3. **Set the appsettings.json**
 
 You'll configure the Azure OpenAI GPT-3.5 Turbo model by setting its deployment endpoint, name, and keys in the appsettings. You'll also need to provide your Azure AI Speech service region and key. The Cosmos DB for NoSQL endpoint and key are set to use the emulator by default. If you're using your own Cosmos DB account, be sure to update these values accordingly.
 
-   ```json
-   {
-      "ApiSettings": {
-        "ApiKey": "PROVIDE_YOUR_OWN_GPT_3_5_TURBO_KEY",
-        "ApiEndPointUrl": "YOUR_OWN_GPT_35_TURBO_DEPLOYMENT_ENDPOINT",
-        "ApiModelName": "gpt-35-turbo",
-        "SpeechServiceEndPoint": "PROVIDE_YOUR_OWN_AI_SPEECH_SERVICE_ENDPOINT",
-        "SpeechServiceKey": "PROVIDE_YOUR_OWN_AI_SPEECH_SERVICE_KEY",
-        "SpeechServiceRegion": "PROVIDE_YOUR_OWN_AI_SPEECH_SERVICE_REGION"
-      },
-      "CosmosDbSettings": {
-        "CosmosDbUrl": "https://localhost:8081",
-        "CosmosDbKey": "C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw=="
-      }
+```json
+{
+   "ApiSettings": {
+     "ApiKey": "PROVIDE_YOUR_OWN_GPT_3_5_TURBO_KEY",
+     "ApiEndPointUrl": "YOUR_OWN_GPT_35_TURBO_DEPLOYMENT_ENDPOINT",
+     "ApiModelName": "gpt-35-turbo",
+     "SpeechServiceEndPoint": "PROVIDE_YOUR_OWN_AI_SPEECH_SERVICE_ENDPOINT",
+     "SpeechServiceKey": "PROVIDE_YOUR_OWN_AI_SPEECH_SERVICE_KEY",
+     "SpeechServiceRegion": "PROVIDE_YOUR_OWN_AI_SPEECH_SERVICE_REGION"
+   },
+   "CosmosDbSettings": {
+     "CosmosDbUrl": "https://localhost:8081",
+     "CosmosDbKey": "C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw=="
    }
-   ```
+}
+```
    
 #### Step 1: Load Credential Data from `appsettings.json`
 
@@ -410,7 +413,6 @@ public class GoodFoodPlugin
         }
 
     }
-
     
     private async Task ApplyAsync(dynamic @event)
     {
