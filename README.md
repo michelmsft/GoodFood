@@ -160,7 +160,7 @@ az cosmosdb sql stored-procedure create \
    - using static System.Net.Mime.MediaTypeNames;
   
 3. **Set the appsettings.json**
-   ```sh
+   ```json
    {
       "ApiSettings": {
         "ApiKey": "PROVIDE_YOUR_OWN_GPT_3_5_TURBO_KEY",
