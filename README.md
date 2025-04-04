@@ -160,22 +160,21 @@ az cosmosdb sql stored-procedure create \
    - using static System.Net.Mime.MediaTypeNames;
   
 3. **Set the appsettings.json**
-   ```json
-  {
-  "ApiSettings": {
-    "ApiKey": "PROVIDE_YOUR_OWN_GPT_3_5_TURBO_KEY",
-    "ApiEndPointUrl": "YOUR_OWN_GPT_35_TURBO_DEPLOYMENT_ENDPOINT",
-    "ApiModelName": "gpt-35-turbo",
-    "SpeechServiceEndPoint": "PROVIDE_YOUR_OWN_AI_SPEECH_SERVICE_ENDPOINT",
-    "SpeechServiceKey": "PROVIDE_YOUR_OWN_AI_SPEECH_SERVICE_KEY",
-    "SpeechServiceRegion": "PROVIDE_YOUR_OWN_AI_SPEECH_SERVICE_REGION"
-  },
-  "CosmosDbSettings": {
-    "CosmosDbUrl": "https://localhost:8081",
-    "CosmosDbKey": "C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw=="
+   ```sh
+   {
+      "ApiSettings": {
+        "ApiKey": "PROVIDE_YOUR_OWN_GPT_3_5_TURBO_KEY",
+        "ApiEndPointUrl": "YOUR_OWN_GPT_35_TURBO_DEPLOYMENT_ENDPOINT",
+        "ApiModelName": "gpt-35-turbo",
+        "SpeechServiceEndPoint": "PROVIDE_YOUR_OWN_AI_SPEECH_SERVICE_ENDPOINT",
+        "SpeechServiceKey": "PROVIDE_YOUR_OWN_AI_SPEECH_SERVICE_KEY",
+        "SpeechServiceRegion": "PROVIDE_YOUR_OWN_AI_SPEECH_SERVICE_REGION"
+      },
+      "CosmosDbSettings": {
+        "CosmosDbUrl": "https://localhost:8081",
+        "CosmosDbKey": "C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw=="
+      }
   }
-}
-
    ```
    
 #### Step 1: Load Credential Data from `appsettings.json`
