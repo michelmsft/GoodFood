@@ -4,10 +4,10 @@
 This AI-powered **Fast Food Drive-Thru Operator** leverages **Semantic Kernel** and **Azure OpenAI GPT-3.5 turbo** to streamline customer interactions, improve efficiency, and automate order processing.  
 
 ### **How It Works**  
-1. **Speech & AI Interaction** – The system uses **Azure OpenAI GPT-3.5 turbo** with **Semantic Kernel Planner** for intelligent conversation and order handling.  
-2. **Database Management** – Order details are stored and retrieved using **Cosmos DB for NoSQL**.  
-3. **Voice Responses** – A **.NET Console App** integrates **System Speech Synthesis** to communicate with customers.  
-4. **Custom Plugins** – C# plugins handle database CRUD operations for seamless transactions.
+1. **Speech & AI Interaction**: The system uses Azure OpenAI GPT-3.5 Turbo, integrated with the Semantic Kernel Planner, to handle intelligent conversations and order management.
+2. **Database Management**: Order details are stored and retrieved using Cosmos DB, providing a NoSQL solution for efficient and scalable data storage.
+3. **Voice Responses**: The system integrates Azure AI Speech Service – Speech Synthesis, enabling real-time voice interactions with customers during the ordering process.
+4. **Custom Plugins**: C# plugins are used to handle database CRUD operations, ensuring seamless transaction processing and integration within the system.
 
 ![image](https://github.com/user-attachments/assets/e61f1162-93d1-4847-a57a-bbb6de614d34)
 
