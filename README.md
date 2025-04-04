@@ -26,47 +26,47 @@ go to https://localhost:8081/_explorer/index.html and make sure it up running. i
 3. Create another container named `views` with `/streamid` as partition key.
 4. Create a stored procedure for the the `events` container. Name the stored procedure  `SpAppendToStream`.
    The definition of the stored procedure is as follows:
-   ``` javascript
-   function appendToStream(streamId, event) {
-        try {
-            var versionQuery = {
-                'query': 'SELECT VALUE Max(e.version) FROM events e WHERE e.streamid = @streamId',
-                'parameters': [{ 'name': '@streamId', 'value': streamId }]
-            };
-    
-            const isAccepted = __.queryDocuments(__.getSelfLink(), versionQuery,
-                function (err, items, options) {
-                    if (err) {
-                        __.response.setBody({ error: "Query Failed: " + err.message });
-                        return;
-                    }
-    
-                    var currentVersion = (items && items.length && items[0] !== null) ? items[0] : -1;
-                    var newVersion = currentVersion + 1;
-    
-                    event.version = newVersion;
-                    event.streamid = streamId;
-    
-                    const accepted = __.createDocument(__.getSelfLink(), event, function (err, createdDoc) {
-                        if (err) {
-                            __.response.setBody({ error: "Insert Failed: " + err.message });
-                            return;
-                        }
-                        __.response.setBody(createdDoc);
-                    });
-    
-                    if (!accepted) {
-                        __.response.setBody({ error: "Insertion was not accepted." });
-                    }
-                });
-    
-            if (!isAccepted) __.response.setBody({ error: "The query was not accepted by the server." });
-        } catch (e) {
-            __.response.setBody({ error: "Unexpected error: " + e.message });
-        }
-    }
+``` javascript
+function appendToStream(streamId, event) {
+     try {
+         var versionQuery = {
+             'query': 'SELECT VALUE Max(e.version) FROM events e WHERE e.streamid = @streamId',
+             'parameters': [{ 'name': '@streamId', 'value': streamId }]
+         };
+ 
+         const isAccepted = __.queryDocuments(__.getSelfLink(), versionQuery,
+             function (err, items, options) {
+                 if (err) {
+                     __.response.setBody({ error: "Query Failed: " + err.message });
+                     return;
+                 }
+ 
+                 var currentVersion = (items && items.length && items[0] !== null) ? items[0] : -1;
+                 var newVersion = currentVersion + 1;
+ 
+                 event.version = newVersion;
+                 event.streamid = streamId;
+ 
+                 const accepted = __.createDocument(__.getSelfLink(), event, function (err, createdDoc) {
+                     if (err) {
+                         __.response.setBody({ error: "Insert Failed: " + err.message });
+                         return;
+                     }
+                     __.response.setBody(createdDoc);
+                 });
+ 
+                 if (!accepted) {
+                     __.response.setBody({ error: "Insertion was not accepted." });
+                 }
+             });
+ 
+         if (!isAccepted) __.response.setBody({ error: "The query was not accepted by the server." });
+     } catch (e) {
+         __.response.setBody({ error: "Unexpected error: " + e.message });
+     }
+ }
 
-    ```
+ ```
 You can absolutely deploy your event sourcing backend database to your own Cosmos DB for NoSQL account in Azure if that works best for you. You can use Azure CLI command sequence to create an Azure Cosmos DB account, a database named `goodfooddb`, and two containers (`events` and `views`) with their respective partition keys and the stored procedure for the container `events`.
 
 ## Phase 2: FrontEnd Fast Food ops using a .Net Console app 
