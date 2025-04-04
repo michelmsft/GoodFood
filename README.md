@@ -20,6 +20,60 @@ This AI agent enhances the **drive-thru experience** with fast, intelligent, and
 
 You can use Azure CLI command sequence to create an Azure Cosmos DB account, a database named `goodfooddb`, and two containers (`events` and `views`) with their respective partition keys.
 
+### Step 0: Download Install Cosmos DB for NoSQL Emulator 
+for the sake of this example, we are going to use a local Cosmos DB for NoSQL Emulator as our backend DB. 
+ 
+Go to the official download page: https://aka.ms/cosmosdb-emulator 
+go to https://localhost:8081/_explorer/index.html and make sure it up running. in your local cosmos db emulator, you will create the following components:
+
+1. Create a database named goodfooddb
+2. Create a container named `events` with `/streamid` as partition key.
+3. Create another container named `views` with `/streamid` as partition key.
+4. Create a stored procedure for the the `events` container. Name the stored procedure  `SpAppendToStream`.
+   The definition of the stored procedure is as follows:
+   ``` javascript
+   function appendToStream(streamId, event) {
+        try {
+            var versionQuery = {
+                'query': 'SELECT VALUE Max(e.version) FROM events e WHERE e.streamid = @streamId',
+                'parameters': [{ 'name': '@streamId', 'value': streamId }]
+            };
+    
+            const isAccepted = __.queryDocuments(__.getSelfLink(), versionQuery,
+                function (err, items, options) {
+                    if (err) {
+                        __.response.setBody({ error: "Query Failed: " + err.message });
+                        return;
+                    }
+    
+                    var currentVersion = (items && items.length && items[0] !== null) ? items[0] : -1;
+                    var newVersion = currentVersion + 1;
+    
+                    event.version = newVersion;
+                    event.streamid = streamId;
+    
+                    const accepted = __.createDocument(__.getSelfLink(), event, function (err, createdDoc) {
+                        if (err) {
+                            __.response.setBody({ error: "Insert Failed: " + err.message });
+                            return;
+                        }
+                        __.response.setBody(createdDoc);
+                    });
+    
+                    if (!accepted) {
+                        __.response.setBody({ error: "Insertion was not accepted." });
+                    }
+                });
+    
+            if (!isAccepted) __.response.setBody({ error: "The query was not accepted by the server." });
+        } catch (e) {
+            __.response.setBody({ error: "Unexpected error: " + e.message });
+        }
+    }
+
+    ```
+You can absolutely deploy your event sourcing backend database to your own Cosmos DB for NoSQL account in Azure if that works best for you. and to do, you will follow the step 1-6.
+
 ### Step 1: Set Variables
 ```sh
 RESOURCE_GROUP="your-resource-group"
