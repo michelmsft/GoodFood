@@ -11,14 +11,9 @@ This AI-powered **Fast Food Drive-Thru Operator** leverages **Semantic Kernel** 
 
 ![image](https://github.com/user-attachments/assets/e61f1162-93d1-4847-a57a-bbb6de614d34)
 
-
-
-
 This AI agent enhances the **drive-thru experience** with fast, intelligent, and voice-driven automation! 
 
 ## Phase 1: Backend Database for Fast Food ops
-
-You can use Azure CLI command sequence to create an Azure Cosmos DB account, a database named `goodfooddb`, and two containers (`events` and `views`) with their respective partition keys.
 
 ### Step 0: Download Install Cosmos DB for NoSQL Emulator 
 for the sake of this example, we are going to use a local Cosmos DB for NoSQL Emulator as our backend DB. 
@@ -72,111 +67,7 @@ go to https://localhost:8081/_explorer/index.html and make sure it up running. i
     }
 
     ```
-You can absolutely deploy your event sourcing backend database to your own Cosmos DB for NoSQL account in Azure if that works best for you. and to do, you will follow the step 1-6.
-
-### Step 1: Set Variables
-```sh
-RESOURCE_GROUP="your-resource-group"
-COSMOS_DB_ACCOUNT="your-cosmosdb-account-name"
-DB_NAME="goodfooddb"
-LOCATION="eastus"  # Change as needed
-```
-
-### Step 2: Create Azure Cosmos DB Account
-```sh
-az cosmosdb create \
-    --name $COSMOS_DB_ACCOUNT \
-    --resource-group $RESOURCE_GROUP \
-    --locations regionName=$LOCATION \
-    --default-consistency-level Strong \
-    --kind GlobalDocumentDB
-```
-
-### Step 3: Create the Database
-```sh
-az cosmosdb sql database create \
-    --account-name $COSMOS_DB_ACCOUNT \
-    --resource-group $RESOURCE_GROUP \
-    --name $DB_NAME
-```
-### Step 4: Create the `events` Container
- ```sh
- az cosmosdb sql container create \
-     --account-name $COSMOS_DB_ACCOUNT \
-     --resource-group $RESOURCE_GROUP \
-     --database-name $DB_NAME \
-     --name "events" \
-     --partition-key-path "/streamid" \
-     --throughput 400
- ```
- 
- ### Step 5: Create the `views` Container
- ```sh
- az cosmosdb sql container create \
-     --account-name $COSMOS_DB_ACCOUNT \
-     --resource-group $RESOURCE_GROUP \
-     --database-name $DB_NAME \
-     --name "views" \
-     --partition-key-path "/streamid" \
-     --throughput 400
- ```
-
-### Step 6: Create a stored procedure called `SpAppendToStream` in the `events` container
-#### 6.1 Create the JavaScript File
-Save the following code in a file named spAppendToStream.js:
-``` javascript
-function appendToStream(streamId, event) {
-    try {
-        var versionQuery = {
-            'query': 'SELECT VALUE Max(e.version) FROM events e WHERE e.streamid = @streamId',
-            'parameters': [{ 'name': '@streamId', 'value': streamId }]
-        };
-
-        const isAccepted = __.queryDocuments(__.getSelfLink(), versionQuery,
-            function (err, items, options) {
-                if (err) {
-                    __.response.setBody({ error: "Query Failed: " + err.message });
-                    return;
-                }
-
-                var currentVersion = (items && items.length && items[0] !== null) ? items[0] : -1;
-                var newVersion = currentVersion + 1;
-
-                event.version = newVersion;
-                event.streamid = streamId;
-
-                const accepted = __.createDocument(__.getSelfLink(), event, function (err, createdDoc) {
-                    if (err) {
-                        __.response.setBody({ error: "Insert Failed: " + err.message });
-                        return;
-                    }
-                    __.response.setBody(createdDoc);
-                });
-
-                if (!accepted) {
-                    __.response.setBody({ error: "Insertion was not accepted." });
-                }
-            });
-
-        if (!isAccepted) __.response.setBody({ error: "The query was not accepted by the server." });
-    } catch (e) {
-        __.response.setBody({ error: "Unexpected error: " + e.message });
-    }
-}
-
-```
-#### 6.2 Deploy the Stored Procedure Using Azure CLI
-Run the following command in the terminal (ensure you have az CLI installed and logged in):
-```sh
-az cosmosdb sql stored-procedure create \
-    --account-name $COSMOS_DB_ACCOUNT \
-    --resource-group $RESOURCE_GROUP \
-    --database-name $DB_NAME \
-    --container-name "events" \
-    --name "SpAppendToStream" \
-    --body "$(cat spAppendToStream.js)"
-
-```
+You can absolutely deploy your event sourcing backend database to your own Cosmos DB for NoSQL account in Azure if that works best for you. You can use Azure CLI command sequence to create an Azure Cosmos DB account, a database named `goodfooddb`, and two containers (`events` and `views`) with their respective partition keys and the stored procedure for the container `events`.
 
 ## Phase 2: FrontEnd Fast Food ops using a .Net Console app 
 
@@ -185,13 +76,18 @@ az cosmosdb sql stored-procedure create \
 #### Prerequisites
 
 1. **Install Required Packages**:
+
+You will install the required .net packages  and import the following libraries to your console app program.cs code.
+
    - dotnet add package Microsoft.CognitiveServices.Speech 1.43.0
    - dotnet add package Microsoft.SemanticKernel 1.35.0
    - dotnet add package Microsoft.Azure.Cosmos 3.36.0
    - dotnet add package Microsoft.Extensions.Configuration 9.0.3
    - dotnet add package Microsoft.Extensions.Configuration.json 9.0.3
    - dotnet add package Microsoft.Extensions.Caching.Memory 9.0.3
+     
 2. **import libraries**:
+   
    - using Microsoft.SemanticKernel;
    - using Microsoft.SemanticKernel.ChatCompletion;
    - using Microsoft.Azure.Cosmos;
@@ -214,6 +110,9 @@ az cosmosdb sql stored-procedure create \
    - using static System.Net.Mime.MediaTypeNames;
   
 3. **Set the appsettings.json**
+
+You'll configure the Azure OpenAI GPT-3.5 Turbo model by setting its deployment endpoint, name, and keys in the appsettings. You'll also need to provide your Azure AI Speech service region and key. The Cosmos DB for NoSQL endpoint and key are set to use the emulator by default. If you're using your own Cosmos DB account, be sure to update these values accordingly.
+
    ```json
    {
       "ApiSettings": {
@@ -232,6 +131,8 @@ az cosmosdb sql stored-procedure create \
    ```
    
 #### Step 1: Load Credential Data from `appsettings.json`
+
+In this step, we load service credentials and configuration values from the appsettings.json file into variables so they can be used throughout the application.
 
 ```csharp
 // Get the root directory of the application
@@ -260,10 +161,12 @@ if (string.IsNullOrEmpty(apiEndPointUrl) || string.IsNullOrEmpty(apiKey) || stri
     return;
 }
 ```
+
 #### Step 2: Build the Kernel
+
+In this step, we create and configure the Semantic Kernel by connecting it to the Azure OpenAI GPT model using the deployment name, endpoint, and API key. Once built, we retrieve the chat completion service from the kernel to enable AI-powered interactions.
+
 ```csharp
-
-
 // Create a kernel with Azure OpenAI chat completion
 IKernelBuilder builder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(
     deploymentName: apiModelName,
@@ -274,32 +177,34 @@ IKernelBuilder builder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(
 // Build the kernel
 Kernel kernel = builder.Build();
 var chatCompletionService = kernel.GetRequiredService<IChatCompletionService>();
-
-
 ```
 #### Step 3: Add a Plugin
+
+In this step, we add a custom plugin to the kernel. This plugin (GoodFoodPlugin) is registered under the name "DriveThru" and provides the functionality needed for our Fast food drive thru application’s logic.
+
 ```csharp
 // Add a plugin 
 kernel.Plugins.AddFromType<GoodFoodPlugin>("DriveThru");
 ```
 #### Step 4: Enable Planning
+
+In this step, we configure prompt execution settings to guide the AI's behavior. By setting `FunctionChoiceBehavior` to `Auto()` and adjusting the Temperature, we enable the planner to make smarter decisions when selecting functions to execute.
+
 ```csharp
-
-
 AzureOpenAIPromptExecutionSettings settings = new()
 {
     FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(),
     Temperature = 0.3
 };
-
-
 ```
 #### Step 5: Instantiate Messaging and Chat
+
+In this step, we set up the main chat loop. The app captures the user's voice input using Azure Speech Recognition, sends it to the AI for processing, and then reads the response back using text-to-speech. The full conversation is tracked using chatHistory, enabling context-aware replies from the AI.
+
 ```csharp
 string? userInput=null;
 do
 {
-
     // using speech recorgnition to retrieve user input
 
     Console.Write($"You :");
@@ -329,8 +234,6 @@ do
         continue;
     }
   
-
-
     //get the response from AI
 
     var result = await chatCompletionService.GetChatMessageContentAsync(
@@ -355,7 +258,6 @@ do
     using var synthesizer = new SpeechSynthesizer(speechConfig);
     var speech = await synthesizer.SpeakTextAsync(textToRead);
 
-
     //add the message from the agent to the chart history
 
     chatHistory.AddMessage(result.Role, result.Content ?? string.Empty);
@@ -363,12 +265,39 @@ do
 ```
 
 #### Step 6: Implement GoodFoodPlugin Class
+
+In this step, we define the core plugin that acts as the intelligent bridge between the user and the GoodFood backend system. The GoodFoodPlugin class uses kernel functions to:
+- Fetch the menu based on the current time of day (breakfast, lunch, or dinner)
+- Initialize a new order
+- Add menu items to the current order
+
+It also integrates with an event-sourcing pattern by persisting changes to the order and menu states via the EventStore and maintaining current views using the EventView.
+
+Key methods include:
+
+- `GetMenuItemAsync()`: Retrieves a time-based menu from Cosmos DB and returns it for display.
+- `CreateNewOrder()`: Sets up a new order with a unique ID and default values.
+- `AddingItemToCurrentOrder(...)`: Adds or updates items in the customer’s order, recalculating totals and updating the view.
+- `ApplyAsync(...)`: A powerful internal function responsible for rebuilding current state views from the event stream—whether it’s creating, updating, or canceling orders.
+
+You will add to these methods the following methods which details are provided in the actual program.cs
+
+| Method Name                        | Purpose                                                                 |
+|------------------------------------|-------------------------------------------------------------------------|
+| `RemoveItemFromCurrentOrder`       | Removes a specified item and quantity from the current order.           |
+| `GetRecapCurrentOrder`             | Retrieves and summarizes the current order, listing all items and totals. |
+| `CancelCurrentOrder`               | Cancels the current order after customer confirmation.                  |
+| `AddCustomerNameToCurrentOrder`    | Adds or updates the customer’s name for the current order.              |
+| `ClearScreen`                      | Clears the console and prepares the interface for the next customer.    |
+| `SeedingMenu` *(private)*          | Seeds the menu with default breakfast, lunch, and dinner items if none exist. |
+
+Each method is decorated with [KernelFunction] attributes to expose them for AI-driven orchestration, allowing the Semantic Kernel to intelligently trigger the right function based on user intent.
+
 ```csharp
 public class GoodFoodPlugin
 {
     private readonly EventStore _estore;
     private readonly EventView _eviewstore;
-
     public GoodFoodPlugin()
     {
         _estore = new EventStore();
@@ -389,12 +318,8 @@ public class GoodFoodPlugin
                 _ when currentTime >= new TimeSpan(11, 0, 0) && currentTime < new TimeSpan(15, 0, 0) => "lunch",
                 _ => "dinner"
             };
-
-
-
             string query = "SELECT * FROM c WHERE c.data.MenuId = @menuid";
             var parameters = new Dictionary<string, object> { { "@menuid", menuTime } };
-
             var foodmenu = await _eviewstore.QueryItemAsync<View<FoodMnu>>(query, parameters);
             if (foodmenu != null)
             {
@@ -415,9 +340,7 @@ public class GoodFoodPlugin
     {
         try
         {
-
             var oid = Guid.NewGuid().ToString();
-
             var newOrder = new Order
             {
                 orderid = oid,
@@ -428,7 +351,6 @@ public class GoodFoodPlugin
                 isCanceled = false,
                 orderdetails = new List<OrderDetail>(),
             };
-
             var res = await _estore.AppendToStreamAsync<Order>(
                 newOrder.orderid,
                 nEventType.NewOrderCreated.ToString(),
@@ -438,7 +360,6 @@ public class GoodFoodPlugin
             await ApplyAsync(res);
             return $"A new order has been initiated for the current customer.  Order ID: {newOrder.orderid}";
         }
-
         catch (Exception ex)
         {
             return "An unexpected error occurred while initiating this order.";
@@ -464,10 +385,8 @@ public class GoodFoodPlugin
             {
                 return $"Menu item ID {itemId} is not available on the current menu.";
             }
-
             decimal price = availableMenuItems[itemId];
             decimal subtotal = price * quantity;
-
             var newItem = new OrderDetail
             {
                 orderdetailid = Guid.NewGuid().ToString(),
@@ -476,7 +395,6 @@ public class GoodFoodPlugin
                 unitprice = price,
                 subtotal = subtotal
             };
-
             var res = await _estore.AppendToStreamAsync<OrderDetail>(
                 currentOrderId,
                 nEventType.AddNewItemAddedToOrder.ToString(),
@@ -484,10 +402,8 @@ public class GoodFoodPlugin
                 newItem
             );
             await ApplyAsync(res);
-
             return $"{quantity} {availableMenuItemsName[itemId]} added to the current customer Order ID: {currentOrderId}";
         }
-
         catch (Exception ex)
         {
             return "An unexpected error occurred while initiating this order.";
@@ -498,28 +414,22 @@ public class GoodFoodPlugin
     
     private async Task ApplyAsync(dynamic @event)
     {
-
         var streamId = @event.streamid?.ToString();
         if (string.IsNullOrWhiteSpace(streamId))
         {
             throw new ArgumentException("Stream ID cannot be null or empty.", nameof(@event.streamid));
         }
-
         var e = JsonConvert.DeserializeObject<Event<dynamic>>(@event.ToString());
-
         if (e.entitytype == "FoodMnu")
         {
             var mnu_payload = new FoodMnu();
             var existing_mnu_event = await _eviewstore.LoadViewAsync<View<FoodMnu>>(streamId);
             dynamic mnu_classObj = existing_mnu_event.Item1;
             string _etag = existing_mnu_event.Item2;
-
             FoodMnu exsisting_menu = new FoodMnu();
-
             if (mnu_classObj.streamid != null)
             {
                 exsisting_menu = JsonConvert.DeserializeObject<FoodMnu>(mnu_classObj.data.ToString());
-
                 mnu_payload.MenuId = exsisting_menu.MenuId;
                 mnu_payload.StartingTime = exsisting_menu.StartingTime;
                 mnu_payload.EndTime = exsisting_menu.EndTime;
@@ -531,7 +441,6 @@ public class GoodFoodPlugin
                 mnu_payload.StartingTime = e.data.StartingTime;
                 mnu_payload.EndTime = e.data.EndTime;
                 mnu_payload.List = e.data.List?.ToObject<List<MnuItem>>() ?? new List<MnuItem>();
-
             }
 
             _eviewstore.SaveViewAsync(streamId,
@@ -552,14 +461,10 @@ public class GoodFoodPlugin
             var r = await _eviewstore.LoadViewAsync<View<Order>>(streamId);
             dynamic classObj = r.Item1;
             string etag = r.Item2;
-
-
             Order v = new Order();
-
             if (classObj.streamid != null)
             {
                 v = JsonConvert.DeserializeObject<Order>(classObj.data.ToString());
-
                 playload.orderdetails = new List<OrderDetail>();
                 playload.orderdetails = v.orderdetails;
                 playload.customernickname = v.customernickname;
@@ -571,7 +476,6 @@ public class GoodFoodPlugin
             switch ((nEventType)Enum.Parse(typeof(nEventType), e.eventtype.ToString()))
             {
                 case nEventType.NewOrderCreated:
-
                     playload.orderdetails = new List<OrderDetail>();
                     playload.itemsnumber = e.data.itemsnumber;
                     playload.orderid = e.data.orderid;
@@ -580,21 +484,15 @@ public class GoodFoodPlugin
                     break;
 
                 case nEventType.AddNewItemAddedToOrder:
-
-
                     playload.orderid = v.orderid;
                     playload.orderdate = DateTime.Now.ToString();
                     playload.orderdetails = playload.orderdetails ?? new List<OrderDetail>();
-
                     var o = JsonConvert.DeserializeObject<OrderDetail>(e.data.ToString());
-
                     var existingItem = playload.orderdetails.FirstOrDefault(d => d.menuitemid == o.menuitemid);
-
                     if (existingItem != null)
                     {
                         // Update quantity
                         existingItem.quantity += o.quantity;
-
                         // Recalculate subtotal for this item
                         existingItem.subtotal = existingItem.quantity * existingItem.unitprice;
                     }
@@ -602,20 +500,16 @@ public class GoodFoodPlugin
                     {
                         playload.orderdetails.Add(o);
                     }
-
                     // Recalculate total order values
                     playload.total = playload.orderdetails.Sum(d => d.subtotal);
                     playload.itemsnumber = playload.orderdetails.Sum(d => d.quantity);
                     break;
 
                 case nEventType.ItemRemovedfromOrder:
-
                     playload.orderid = v.orderid;
                     playload.orderdetails = playload.orderdetails ?? new List<OrderDetail>();
-
                     var or = JsonConvert.DeserializeObject<OrderDetail>(e.data.ToString());
                     var existingItemRm = playload.orderdetails.FirstOrDefault(p => p.menuitemid == or.menuitemid);
-
                     if (existingItemRm != null)
                     {
                         if (or.quantity >= existingItemRm.quantity)
@@ -627,7 +521,6 @@ public class GoodFoodPlugin
                         {
                             // Decrease quantity
                             existingItemRm.quantity -= or.quantity;
-
                             // Recalculate subtotal for this item
                             existingItemRm.subtotal = existingItemRm.quantity * existingItemRm.unitprice;
                         }
@@ -637,11 +530,9 @@ public class GoodFoodPlugin
                     playload.itemsnumber = playload.orderdetails.Sum(d => d.quantity);
                     playload.orderdate = DateTime.Now.ToString();
                     // Update order summary
-
                     break;
 
                 case nEventType.OrderCanceled:
-
                     playload.orderdetails = playload.orderdetails ?? new List<OrderDetail>();
                     playload.itemsnumber = v.itemsnumber;
                     playload.orderid = v.orderid;
@@ -652,9 +543,7 @@ public class GoodFoodPlugin
                     break;
 
                 case nEventType.UpdateCustomerNameOnCurrentOrder:
-
                     var o_withname = JsonConvert.DeserializeObject<Order>(e.data.ToString());
-
                     playload.orderdetails = playload.orderdetails ?? new List<OrderDetail>();
                     playload.itemsnumber = v.itemsnumber;
                     playload.customernickname = o_withname.customernickname;
@@ -674,272 +563,23 @@ public class GoodFoodPlugin
                 },
                 etag
             );
-
         }
-
-
     }
 }
 ```
-##### 6.1 Additional Plugins method
-###### 6.1.1 RemoveItemFromCurrentOrder Method
-```csharp
-[KernelFunction("RemoveItemFromCurrentOrder")]
-    [Description("Remove a specified item from the current order after confirming with the customer.")]
-    public async Task<string> RemoveItemFromCurrentOrder(int itemId, int quantity, string currentOrderId)
-    {
-        try
-        {
-            var menu = await GetMenuItemAsync();
-            if (menu == null || menu.List == null || !menu.List.Any())
-            {
-                return "No menu items are currently available to order.";
-            }
 
-            var availableMenuItems = menu.List.ToDictionary(item => item.MenuItemId, item => item.Price);
-            var availableMenuItemsName = menu.List.ToDictionary(item => item.MenuItemId, item => item.Name);
-            if (!availableMenuItems.ContainsKey(itemId))
-            {
-                return $"Menu item ID {itemId} is not available on the current menu.";
-            }
-
-            decimal price = availableMenuItems[itemId];
-            decimal subtotal = price * quantity;
-
-            var newItem = new OrderDetail
-            {
-                orderdetailid = Guid.NewGuid().ToString(),
-                menuitemid = itemId,
-                quantity = quantity,
-                unitprice = price,
-                subtotal = subtotal
-            };
-
-            var res = await _estore.AppendToStreamAsync<OrderDetail>(
-                currentOrderId,
-                nEventType.ItemRemovedfromOrder.ToString(),
-                typeof(Order).Name,
-                newItem
-            );
-            await ApplyAsync(res);
-
-            return $"{quantity} {availableMenuItemsName[itemId]} removed to the current customer Order ID: {currentOrderId}";
-        }
-
-        catch (Exception ex)
-        {
-            return "An unexpected error occurred while initiating this order.";
-        }
-
-    }
-```
-###### 6.1.2 RecapCurrentOrder Method
-```csharp
-    [KernelFunction("RecapCurrentOrder")]
-    [Description("Provide a summary of the current order, listing selected items and their total cost.")]
-    public async Task<dynamic> GetRecapCurrentOrder(string currentOrderId)
-    {
-        try
-        {
-            string query = "SELECT * FROM c WHERE c.streamid = @streamid";
-            var parameters = new Dictionary<string, object> { { "@streamid", currentOrderId } };
-
-            var cOrder = await _eviewstore.QueryItemAsync<View<Order>>(query, parameters);
-            if (cOrder != null) {
-                return cOrder.data;
-            }
-            else
-            {
-                return null;
-            }
-           
-        }
-
-        catch (Exception ex)
-        {
-            return $"An unexpected error occurred while retrieving the current order id {currentOrderId}.";
-        }
-
-    }
-```
-###### 6.1.3 CancelCurrentOrder Method
-```csharp
-    [KernelFunction("CancelCurrentOrder")]
-    [Description("Cancel the entire order after confirming with the customer.")]
-    public async Task<string> CancelCurrentOrder(string currentOrderId)
-    {
-        try
-        {
-
-            var res = await _estore.AppendToStreamAsync<dynamic>(
-                currentOrderId,
-                nEventType.OrderCanceled.ToString(),
-                typeof(Order).Name,
-                null
-            );
-            await ApplyAsync(res);
-
-            return $"Your order # {currentOrderId} has been canceled successfully.";
-
-        }
-
-        catch (Exception ex)
-        {
-            return $"An unexpected error occurred while canceling the current order id {currentOrderId}.";
-        }
-
-    }
-```
-###### 6.1.4 AddCustomerNameToCurrentOrder Method
-```csharp
-    [KernelFunction("AddCustomerNameToCurrentOrder")]
-    [Description("Add Customer name to the current order.")]
-    public async Task<string> AddCustomerNameToCurrentOrder(string currentOrderId, string customerName)
-    {
-        try
-        {
-            var OrderWithCustomerName = new Order
-            {
-                orderid = currentOrderId,
-                orderdate = DateTime.UtcNow.ToString("yyyy/MM/dd HH:mm:ss"),
-                itemsnumber = 0,
-                total = 0,
-                customernickname = customerName,
-                isCanceled = false,
-                orderdetails = new List<OrderDetail>(),
-            };
-
-            var res = await _estore.AppendToStreamAsync<dynamic>(
-                currentOrderId,
-                nEventType.UpdateCustomerNameOnCurrentOrder.ToString(),
-                typeof(Order).Name,
-                OrderWithCustomerName
-            );
-            await ApplyAsync(res);
-
-            return $"The name on the order # {currentOrderId} has been updated successfully.";
-
-        }
-
-        catch (Exception ex)
-        {
-            return $"An unexpected error occurred while canceling the current order id {currentOrderId}.";
-        }
-
-    }
-```
-###### 6.1.5 ClearScreen Method
-```csharp
-    [KernelFunction("ClearScreen")]
-    [Description("Clears the console screen and welcome the next customer.")]
-    public void ClearScreen()
-    {
-        Thread.Sleep(2000);
-        Console.Clear();
-    }
-```
-###### 6.1.6 Internal private SeedingMenu Method
-```csharp
-    private async Task SeedingMenu()
-    {
-        string query = "SELECT * FROM c WHERE c.entitytype = @entity";
-        var parameters = new Dictionary<string, object> { { "@entity", "FoodMnu" } };
-
-        var mnu = await _eviewstore.QueryItemAsync<View<FoodMnu>>(query, parameters);
-        if (mnu == null)
-        {
-
-            var breakfastMenu = new FoodMnu
-            {
-                MenuId = "breakfast",
-                StartingTime = "04:00:00 AM",
-                EndTime = "10:59:59 AM",
-                List = new List<MnuItem>
-                {
-                    new MnuItem { MenuItemId = 1, Name = "Pancakes with Syrup", Description = "Fluffy pancakes with syrup", Price = 5.99m },
-                    new MnuItem { MenuItemId = 2, Name = "Scrambled Eggs with Toast", Description = "Scrambled eggs with toast", Price = 4.99m },
-                    new MnuItem { MenuItemId = 3, Name = "Bacon and Egg Sandwich", Description = "Bacon and egg sandwich", Price = 6.99m },
-                    new MnuItem { MenuItemId = 4, Name = "French Toast", Description = "French toast with syrup", Price = 5.99m },
-                    new MnuItem { MenuItemId = 5, Name = "Breakfast Burrito", Description = "Burrito with eggs, bacon, and cheese", Price = 7.99m },
-                    new MnuItem { MenuItemId = 6, Name = "Oatmeal with Fruit", Description = "Oatmeal topped with fresh fruit", Price = 4.99m },
-                    new MnuItem { MenuItemId = 7, Name = "Sausage and Egg Muffin", Description = "Muffin with sausage and egg", Price = 5.99m },
-                    new MnuItem { MenuItemId = 8, Name = "Yogurt Parfait", Description = "Yogurt with granola and fruit", Price = 3.99m },
-                    new MnuItem { MenuItemId = 9, Name = "Bagel with Cream Cheese", Description = "Bagel with cream cheese", Price = 3.99m },
-                    new MnuItem { MenuItemId = 10, Name = "Waffles with Berries", Description = "Waffles topped with berries", Price = 6.99m }
-                }
-            };
-
-            var breakfast_res = await _estore.AppendToStreamAsync<FoodMnu>(
-                Guid.NewGuid().ToString(),
-                nEventType.NewMenuCreated.ToString(),
-                "FoodMnu",
-                breakfastMenu
-            );
-            await ApplyAsync(breakfast_res);
-
-
-            var lunchMenu = new FoodMnu
-            {
-                MenuId = "lunch",
-                StartingTime = "11:00:00 AM",
-                EndTime = "03:59:59 PM",
-                List = new List<MnuItem>
-            {
-                new MnuItem { MenuItemId = 11, Name = "Cheeseburger", Description = "Juicy beef burger with cheese", Price = 8.99m },
-                new MnuItem { MenuItemId = 12, Name = "Grilled Chicken Sandwich", Description = "Grilled chicken sandwich with lettuce and tomato", Price = 7.99m },
-                new MnuItem { MenuItemId = 13, Name = "Caesar Salad", Description = "Caesar salad with croutons and parmesan", Price = 6.99m },
-                new MnuItem { MenuItemId = 14, Name = "Turkey Club Sandwich", Description = "Turkey club sandwich with bacon and avocado", Price = 9.99m },
-                new MnuItem { MenuItemId = 15, Name = "Veggie Wrap", Description = "Wrap with assorted vegetables and hummus", Price = 7.99m },
-                new MnuItem { MenuItemId = 16, Name = "Chicken Caesar Wrap", Description = "Wrap with chicken, lettuce, and Caesar dressing", Price = 8.99m },
-                new MnuItem { MenuItemId = 17, Name = "BLT Sandwich", Description = "Bacon, lettuce, and tomato sandwich", Price = 6.99m },
-                new MnuItem { MenuItemId = 18, Name = "Tuna Salad Sandwich", Description = "Tuna salad sandwich with lettuce", Price = 7.99m },
-                new MnuItem { MenuItemId = 19, Name = "BBQ Pulled Pork Sandwich", Description = "Pulled pork sandwich with BBQ sauce", Price = 9.99m },
-                new MnuItem { MenuItemId = 20, Name = "Chicken Quesadilla", Description = "Quesadilla with chicken and cheese", Price = 8.99m }
-            }
-            };
-
-            var lunch_res = await _estore.AppendToStreamAsync<FoodMnu>(
-                Guid.NewGuid().ToString(),
-                nEventType.NewMenuCreated.ToString(),
-                "FoodMnu",
-                lunchMenu
-            );
-            await ApplyAsync(lunch_res);
-
-
-            var dinnerMenu = new FoodMnu
-            {
-                MenuId = "dinner",
-                StartingTime = "04:00:00 PM",
-                EndTime = "01:59:59 AM",
-                List = new List<MnuItem>
-            {
-                new MnuItem { MenuItemId = 21, Name = "Grilled Steak with Vegetables", Description = "Grilled steak with a side of vegetables", Price = 15.99m },
-                new MnuItem { MenuItemId = 22, Name = "Spaghetti Bolognese", Description = "Spaghetti with Bolognese sauce", Price = 12.99m },
-                new MnuItem { MenuItemId = 23, Name = "Grilled Salmon with Rice", Description = "Grilled salmon with a side of rice", Price = 14.99m },
-                new MnuItem { MenuItemId = 24, Name = "Chicken Alfredo Pasta", Description = "Pasta with Alfredo sauce and chicken", Price = 13.99m },
-                new MnuItem { MenuItemId = 25, Name = "Beef Tacos", Description = "Tacos with seasoned beef and toppings", Price = 11.99m },
-                new MnuItem { MenuItemId = 26, Name = "Shrimp Scampi", Description = "Shrimp scampi with garlic butter sauce", Price = 16.99m },
-                new MnuItem { MenuItemId = 27, Name = "BBQ Ribs", Description = "BBQ ribs with a side of coleslaw", Price = 17.99m },
-                new MnuItem { MenuItemId = 28, Name = "Chicken Parmesan", Description = "Chicken Parmesan with marinara sauce", Price = 14.99m },
-                new MnuItem { MenuItemId = 29, Name = "Beef Stir Fry", Description = "Beef stir fry with vegetables", Price = 13.99m },
-                new MnuItem { MenuItemId = 30, Name = "Vegetable Lasagna", Description = "Lasagna with assorted vegetables", Price = 12.99m }
-            }
-            };
-
-            var dinner_res = await _estore.AppendToStreamAsync<FoodMnu>(
-                Guid.NewGuid().ToString(),
-                nEventType.NewMenuCreated.ToString(),
-                "FoodMnu",
-                dinnerMenu
-            );
-            await ApplyAsync(dinner_res);
-
-        }
-    }
-
-```
 #### Step 7: Data Model for the GoodFoodPlugin
+
+The GoodFoodPlugin uses a set of data models to manage menus, orders, and order details.
+
+- **FoodMnu**: This class represents a menu and contains properties for `MenuId`, `StartingTime`, `EndTime`, and a list of `MnuItem` objects, which are the individual menu items available during the specified time range.
+- **MnuItem**: Each menu item is defined by this class, which includes properties like `MenuItemId`, `Name`, `Description`, and `Price`. These attributes describe the details of the dish offered in the menu.
+- **Order**: This class holds the details of an order placed by a customer. It includes the `orderid` (unique identifier), `orderdate` (when the order was placed), `itemsnumber` (the number of items in the order), `total` (total price of the order), `customernickname` (a reference to the customer), and a list of `OrderDetail` objects. Additionally, it has an `isCanceled` property to indicate if the order was canceled.
+- **OrderDetail**: This class represents the details of each item within an order. It contains `orderdetailid` (unique identifier for the order item), `menuitemid` (ID of the menu item), `quantity` (the number of units ordered), `unitprice` (the price of one unit), and `subtotal` (the total cost for that specific item in the order).
+
+Each of these classes is linked together to create a structured flow of data, representing menus, items, customer orders, and their details, allowing for an efficient management of food orders in the plugin system.
+
+
 ```csharp
 public class FoodMnu
 {
@@ -997,6 +637,21 @@ public class OrderDetail
 ```
 
 #### Step 8: Basic Event Sourcing for drivethru operation
+
+In this step, event sourcing is implemented to handle the state transitions for various actions in the drivethru operation, such as creating orders, adding/removing items, and processing payments.
+
+#### **1. Event Types (nEventType Enum)**
+
+The `nEventType` enum defines the different types of events that can occur in the system:
+
+- **NewOrderCreated**: When a new order is created.
+- **AddNewItemAddedToOrder**: When a new item is added to an existing order.
+- **ItemRemovedfromOrder**: When an item is removed from an order.
+- **OrderCanceled**: When an order is canceled.
+- **OrderPaymentProcessed**: When payment for an order is processed.
+- **UpdateCustomerNameOnCurrentOrder**: When the customer's name is updated on an order.
+- **NewMenuCreated**: When a new menu is created.
+
 ```csharp
 public enum nEventType
 {
@@ -1009,7 +664,21 @@ public enum nEventType
     UpdateCustomerNameOnCurrentOrder = 7,
     NewMenuCreated = 8,
 }
+```
 
+#### **2. Event Class**
+
+The `Event<T>` class represents a specific event. It includes the following properties:
+
+- `id`: A unique identifier for the event.
+- `streamid`: The identifier for the event stream (this links events to specific entities).
+- `version`: The version of the event.
+- `entitytype`: The type of entity the event is related to (e.g., order, menu).
+- `eventtype`: The type of event (e.g., `NewOrderCreated`).
+- `data`: The actual event data, which is a generic type `T`.
+- `timestamp`: The date and time when the event occurred.
+
+```csharp
 public class Event<T>
 {
     public string id { get; set; }
@@ -1020,6 +689,18 @@ public class Event<T>
     public T data { get; set; }
     public DateTime timestamp { get; set; }
 }
+```
+
+#### **3. EventStream Class**
+
+The `EventStream<T>` class represents a sequence of events for a specific entity. It contains:
+
+- `Id`: The identifier for the stream.
+- `Version`: The version of the event stream.
+- `Events`: A collection of events associated with the stream.
+
+This class is used to store and manage a series of events.
+```csharp
 public class EventStream<T>
 {
     private readonly List<Event<T>> _events;
@@ -1037,6 +718,17 @@ public class EventStream<T>
         get { return _events; }
     }
 }
+```
+
+#### **4. EventStore Class**
+
+The `EventStore` class interacts with the Cosmos DB to store and load events. It has the following methods:
+
+- **AppendToStreamAsync**: Appends an event to the event stream. It generates a new `Event<T>` object and saves it to Cosmos DB.
+- **LoadStreamAsync**: Loads the events for a specific stream by querying the Cosmos DB for the events and returning them in the form of an `EventStream<T>`.
+
+This class allows for the persistence of events and enables event sourcing, ensuring the state transitions of entities are properly tracked over time.
+```csharp
 public class EventStore
 {
     private readonly CosmosClient _cl;
@@ -1114,7 +806,20 @@ public class EventStore
         return new EventStream<T>(streamId, version, events);
     }
 }
+```
 
+#### **5. View Class**
+
+The `View<T>` class represents a projection of an event stream. It stores:
+
+- `id`: The unique identifier for the view.
+- `streamid`: The identifier for the event stream.
+- `version`: The version of the view.
+- `data`: The data associated with the view.
+- `entitytype`: The type of entity the view is for (e.g., order).
+- `timestamp`: The timestamp of when the view was created.
+
+```csharp
 public class View<T>
 {
     public string id { get; set; }
@@ -1124,6 +829,20 @@ public class View<T>
     public string entitytype { get; set; }
     public DateTime timestamp { get; set; }
 }
+```
+
+#### **6. EventView Class**
+
+The `EventView` class is used to manage event views and interacts with Cosmos DB. It includes the following methods:
+
+- **SaveViewAsync**: Saves or updates a view in Cosmos DB, handling optimistic concurrency using ETag values.
+- **LoadViewAsync**: Loads a view from Cosmos DB based on the `streamid`.
+- **QueryItemAsync**: Executes a query on the Cosmos DB container and returns a specific item matching the query.
+- **ForceDropEventViewAsync**: Deletes an event view from Cosmos DB by its `streamId` and `eventId`.
+
+This class enables efficient handling and querying of event projections.
+
+```csharp
 public class EventView
 {
     private readonly CosmosClient _cl;
@@ -1222,6 +941,8 @@ public class EventView
     }
 }
 ```
+
+This event sourcing setup provides an efficient way to capture and manage state transitions in a drivethru operation, supporting the management of orders and related actions in a consistent and scalable manner.
 
 ### **How It Works (Flow)**
 1. Load credentials from `appsettings.json`.
