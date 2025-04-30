@@ -83,12 +83,12 @@ You can absolutely deploy your event sourcing backend database to your own Cosmo
 
 You will install the required .net packages  and import the following libraries to your console app program.cs code.
 
-- dotnet add package Microsoft.CognitiveServices.Speech 1.43.0
-- dotnet add package Microsoft.SemanticKernel 1.35.0
-- dotnet add package Microsoft.Azure.Cosmos 3.36.0
-- dotnet add package Microsoft.Extensions.Configuration 9.0.3
-- dotnet add package Microsoft.Extensions.Configuration.json 9.0.3
-- dotnet add package Microsoft.Extensions.Caching.Memory 9.0.3
+- dotnet add package Microsoft.CognitiveServices.Speech --version 1.43.0
+- dotnet add package Microsoft.SemanticKernel --version 1.35.0
+- dotnet add package Microsoft.Azure.Cosmos --version 3.36.0
+- dotnet add package Microsoft.Extensions.Configuration --version 9.0.3
+- dotnet add package Microsoft.Extensions.Configuration.json --version 9.0.3
+- dotnet add package Microsoft.Extensions.Caching.Memory --version 9.0.3
      
 2. **import libraries**:
 
