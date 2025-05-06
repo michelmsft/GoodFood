@@ -9,9 +9,6 @@ param environmentName string
 @description('Primary location for all resources')
 param location string
 
-@description('Primary location for ai resources')
-param ailocation string
-
 
 @description('Current IP')
 param IP string = ''
@@ -26,6 +23,7 @@ param principalId string
 //   tags: union(tags, { 'azd-service-name': <service name in azure.yaml> })
 var tags = {
   'azd-env-name': environmentName
+  SecurityControl: 'Ignore'
 }
 
 // Organize resources in a resource group
@@ -48,6 +46,13 @@ module resources 'resources.bicep' = {
 
 
 
+output OPENAI_RESOURCE_ID string = resources.outputs.OPENAI_RESOURCE_ID
+output OPENAI_SERVICE_URI string = resources.outputs.OPENAI_SERVICE_URI
+output SPEECH_SERVICE_URI string = resources.outputs.SPEECH_SERVICE_URI
+output SPEECH_SERVICE_RESOURCE_ID string = resources.outputs.SPEECH_SERVICE_RESOURCE_ID
+
+
+output COSMOS_URI string = resources.outputs.COSMOS_URI
 
 output USER string = resources.outputs.USER
 output COSMOS_NAME string =  resources.outputs.COSMOS_NAME

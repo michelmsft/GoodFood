@@ -1,29 +1,19 @@
 @description('The location used for all deployed resources')
 param location string = resourceGroup().location
 
-@description('The location used for all deployed resources')
-param ailocation string = resourceGroup().location
-
-
 @description('Tags that will be applied to all resources')
 param tags object = {}
-
 param privateIP string
 
 @description('Id of the user or app to assign application roles')
 param principalId string
 
-
-
-
 var abbrs = loadJsonContent('./abbreviations.json')
 var resourceToken = uniqueString(subscription().id, resourceGroup().id, location)
-
-var cosmos_acc_name=  'cosmos${uniqueString(resourceGroup().id)}'
-var sperimeters_acc_name = 'sp${uniqueString(resourceGroup().id)}'
-var openAIName = 'openai${uniqueString(resourceGroup().id)}'
-var speechServiceName = 'speech${uniqueString(resourceGroup().id)}'
-var languageServiceName = 'language${uniqueString(resourceGroup().id)}'
+var cosmos_acc_name=  'cosmos-${resourceToken}'
+var openAIName = 'openai-${resourceToken}'
+var speechServiceName = 'speech-${resourceToken}'
+var sperimeters_acc_name = 'sp-${resourceToken}'
 
 //gpt-35-turbo and gpt-4o-mini
 var deployments = [
@@ -39,17 +29,17 @@ var deployments = [
 ]
 
 
-// Monitor application with Azure Monitor
-module monitoring 'br/public:avm/ptn/azd/monitoring:0.1.0' = {
-  name: 'monitoring'
-  params: {
-    logAnalyticsName: '${abbrs.operationalInsightsWorkspaces}${resourceToken}'
-    applicationInsightsName: '${abbrs.insightsComponents}${resourceToken}'
-    applicationInsightsDashboardName: '${abbrs.portalDashboards}${resourceToken}'
-    location: location
-    tags: tags
-  }
-}
+// // Monitor application with Azure Monitor
+// module monitoring 'br/public:avm/ptn/azd/monitoring:0.1.0' = {
+//   name: 'monitoring'
+//   params: {
+//     logAnalyticsName: '${abbrs.operationalInsightsWorkspaces}${resourceToken}'
+//     applicationInsightsName: '${abbrs.insightsComponents}${resourceToken}'
+//     applicationInsightsDashboardName: '${abbrs.portalDashboards}${resourceToken}'
+//     location: location
+//     tags: tags
+//   }
+// }
 
 
 
@@ -59,7 +49,7 @@ module monitoring 'br/public:avm/ptn/azd/monitoring:0.1.0' = {
 module openAI './modules/cognitive.bicep' = {
   name: openAIName
   params: {
-    location: ailocation
+    location: location
     name: openAIName
     deployments: deployments
     tags: tags
@@ -72,32 +62,25 @@ module openAI './modules/cognitive.bicep' = {
 }
 
 @description('Creates an Azure AI Services Speech service.')
-resource speechService 'Microsoft.CognitiveServices/accounts@2023-05-01' = {
+resource speechService 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' = {
   name: speechServiceName
-  location: ailocation
+  location: location
   kind: 'SpeechServices'
+  tags: tags
   sku: {
     name: 'S0'
   }
   properties: {
     customSubDomainName: speechServiceName
     publicNetworkAccess: 'Enabled'
-    restore: false
-  }
-}
-
-@description('Creates an Azure AI Services Language service.')
-resource languageService 'Microsoft.CognitiveServices/accounts@2023-05-01' = {
-  name: languageServiceName
-  location: ailocation
-  kind: 'TextAnalytics'
-  sku: {
-    name: 'S'
-  }
-  properties: {
-    customSubDomainName: languageServiceName
-    publicNetworkAccess: 'Enabled'
-    restore: false
+    networkAcls: {
+      defaultAction: 'Deny'
+      ipRules: [
+        {
+          value: privateIP
+        }
+      ]
+    }
   }
 }
 
@@ -105,11 +88,11 @@ resource languageService 'Microsoft.CognitiveServices/accounts@2023-05-01' = {
 resource cosmosdb 'Microsoft.DocumentDB/databaseAccounts@2024-12-01-preview' = {
   name: cosmos_acc_name
   location: location
-  tags: {
+  tags: union(tags, { 
     defaultExperience: 'Core (SQL)'
     'hidden-workload-type': 'Learning'
     'hidden-cosmos-mmspecial': ''
-  }
+  })
   kind: 'GlobalDocumentDB'
   identity: {
     type: 'None'
@@ -450,6 +433,15 @@ resource spcosmos 'Microsoft.Network/networkSecurityPerimeters/resourceAssociati
   }
 }
 
+
+
+output OPENAI_RESOURCE_ID string = openAI.outputs.id
+output SPEECH_SERVICE_URI string = 'https://${speechServiceName}.cognitiveservices.azure.com'
+output SPEECH_SERVICE_RESOURCE_ID string = speechService.id
+
+output COSMOS_URI string = cosmosdb.properties.documentEndpoint
+output COSMOS_DB_URI string = 'https://${cosmos_acc_name}.documents.azure.com:443/'
+output OPENAI_SERVICE_URI string = openAI.outputs.endpoint
 
 output COSMOS_NAME string = cosmos_acc_name
 output COSMOS_ROLE1 string = cosmos_role1.id

@@ -1,4 +1,4 @@
-﻿﻿
+﻿#nullable disable
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.Azure.Cosmos;
@@ -19,6 +19,9 @@ using Microsoft.Azure.Cosmos.Serialization.HybridRow;
 using Microsoft.CognitiveServices.Speech;
 using System.Drawing;
 using static System.Net.Mime.MediaTypeNames;
+using Azure.Identity;
+using Azure.Core;
+using System.Runtime.InteropServices;
 
 
 #region Load credential data from appsettings.json
@@ -38,34 +41,37 @@ var config = new ConfigurationBuilder()
 
 // Retrieve values from the configuration
 
-string? apiKey = config["ApiSettings:ApiKey"];
-string? apiEndPointUrl = config["ApiSettings:ApiEndPointUrl"];
-string? apiModelName = config["ApiSettings:ApiModelName"];
+string apiKey = config["ApiSettings:ApiKey"];
+string apiEndPointUrl = config["ApiSettings:ApiEndPointUrl"];
+string apiModelName = config["ApiSettings:ApiModelName"];
 
 
-string? SpeechApiKey = config["ApiSettings:SpeechServiceKey"];
-string? SpeechApiRegion = config["ApiSettings:SpeechServiceRegion"];
+string SpeechApiKey = config["ApiSettings:SpeechServiceKey"];
+string SpeechApiEndPointUrl = config["ApiSettings:SpeechServiceEndPoint"];
+string SpeechApiRegion = config["ApiSettings:SpeechServiceRegion"];
+string speechResourceId = config["ApiSettings:SpeechResourceID"];
+
+string cosmosdbUrl = config["CosmosDbSettings:CosmosDbUrl"];
+string cosmosdbKey = config["CosmosDbSettings:CosmosDbKey"];
 
 
-string? cosmosdbUrl = config["CosmosDbSettings:CosmosDbUrl"];
-string? cosmosdbKey = config["CosmosDbSettings:CosmosDbKey"];
-
-if (string.IsNullOrEmpty(apiEndPointUrl) || string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(apiModelName))
-{
-    Console.WriteLine("Please check your appsettings.json file for missing or incorrect values.");
-    return;
-}
+// if (string.IsNullOrEmpty(apiEndPointUrl) || string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(apiModelName))
+// {
+//     Console.WriteLine("Please check your appsettings.json file for missing or incorrect values.");
+//     return;
+// }
 
 #endregion
 
 #region Build the Kernel
 
 // Create a kernel with Azure OpenAI chat completion
+var credential = new DefaultAzureCredential();
 
 IKernelBuilder builder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(
     deploymentName: apiModelName,
     endpoint: apiEndPointUrl,
-    apiKey: apiKey
+    credentials: credential
 );
 
 
@@ -79,7 +85,9 @@ var chatCompletionService = kernel.GetRequiredService<IChatCompletionService>();
 
 // Add a plugin 
 
-kernel.Plugins.AddFromType<GoodFoodPlugin>("DriveThru");
+var goodFoodPlugin = new GoodFoodPlugin(cosmosdbUrl, credential);
+kernel.Plugins.AddFromObject(goodFoodPlugin, "DriveThru");
+
 
 #region Enable planning
 
@@ -116,17 +124,23 @@ chatHistory.Add(
 );
 
 int _retry = 0;
-string? userInput=null;
+string userInput=null;
+
+string[] scopes =  ["https://cognitiveservices.azure.com/.default"];
+var tokenContainer = await credential.GetTokenAsync(new TokenRequestContext(scopes));
+var token = tokenContainer.Token;
+string authorizationToken = $"aad#{speechResourceId}#{token}";
+
+SpeechConfig speechConfig = SpeechConfig.FromAuthorizationToken(authorizationToken, SpeechApiRegion);
+
+        
 do
 {
 
-    // using speech recorgnition to retrieve user input
-
     Console.Write($"You :");
-    var speechConfig = SpeechConfig.FromSubscription(SpeechApiKey, SpeechApiRegion);
+
+
     var recognizer = new SpeechRecognizer(speechConfig);
-
-
     var Audiotranscript = await recognizer.RecognizeOnceAsync();
 
     if (Audiotranscript.Reason == ResultReason.RecognizedSpeech)
@@ -146,7 +160,7 @@ do
         continue;
 
     }
-  
+
 
 
     //get the response from AI
@@ -203,12 +217,20 @@ public class GoodFoodPlugin
     private readonly EventStore _estore;
     private readonly EventView _eviewstore;
 
-    public GoodFoodPlugin()
+    public GoodFoodPlugin(string cosmosdbUrl, string cosmosdbKey)
     {
-        _estore = new EventStore();
-        _eviewstore = new EventView();
+        _estore = new EventStore(cosmosdbUrl, cosmosdbKey);
+        _eviewstore = new EventView(cosmosdbUrl, cosmosdbKey);
         SeedingMenu().Wait();
     }
+
+    public GoodFoodPlugin(string cosmosdbUrl, TokenCredential credential)
+    {
+        _estore = new EventStore(cosmosdbUrl, credential);
+        _eviewstore = new EventView(cosmosdbUrl, credential);
+        SeedingMenu().Wait();
+    }
+
 
     [KernelFunction("get_menu")]
     [Description("Retrieve and display the current menu with neatly formatted columns (Menu Item ID, Name, and Price) for easy readability.")]
@@ -273,7 +295,7 @@ public class GoodFoodPlugin
             return $"A new order has been initiated for the current customer.  Order ID: {newOrder.orderid}";
         }
 
-        catch (Exception ex)
+        catch (Exception)
         {
             return "An unexpected error occurred while initiating this order.";
         }
@@ -322,7 +344,7 @@ public class GoodFoodPlugin
             return $"{quantity} {availableMenuItemsName[itemId]} added to the current customer Order ID: {currentOrderId}";
         }
 
-        catch (Exception ex)
+        catch (Exception)
         {
             return "An unexpected error occurred while initiating this order.";
         }
@@ -371,7 +393,7 @@ public class GoodFoodPlugin
             return $"{quantity} {availableMenuItemsName[itemId]} removed to the current customer Order ID: {currentOrderId}";
         }
 
-        catch (Exception ex)
+        catch (Exception)
         {
             return "An unexpected error occurred while initiating this order.";
         }
@@ -398,7 +420,7 @@ public class GoodFoodPlugin
            
         }
 
-        catch (Exception ex)
+        catch (Exception)
         {
             return $"An unexpected error occurred while retrieving the current order id {currentOrderId}.";
         }
@@ -424,7 +446,7 @@ public class GoodFoodPlugin
 
         }
 
-        catch (Exception ex)
+        catch (Exception)
         {
             return $"An unexpected error occurred while canceling the current order id {currentOrderId}.";
         }
@@ -460,7 +482,7 @@ public class GoodFoodPlugin
 
         }
 
-        catch (Exception ex)
+        catch (Exception)
         {
             return $"An unexpected error occurred while canceling the current order id {currentOrderId}.";
         }
@@ -903,9 +925,15 @@ public class EventStore
     private readonly CosmosClient _cl;
     private Microsoft.Azure.Cosmos.Container _cn;
     private Database _db;
-    public EventStore()
+    public EventStore(string cosmosdbUrl, string cosmosdbKey)
     {
-        _cl = new CosmosClient("https://localhost:8081", "C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==");
+        _cl = new CosmosClient(cosmosdbUrl, cosmosdbKey);
+        InitializeDatabaseAndContainer().Wait();
+    }
+
+    public EventStore(string cosmosdbUrl, TokenCredential credential)
+    {
+        _cl = new CosmosClient(cosmosdbUrl, credential);
         InitializeDatabaseAndContainer().Wait();
     }
 
@@ -992,10 +1020,16 @@ public class EventView
     private readonly CosmosClient _cl;
     private Microsoft.Azure.Cosmos.Container _cn;
     private Database _db;
-    public EventView()
+    public EventView(string cosmosdbUrl, string cosmosdbKey)
     {
 
-        _cl = new CosmosClient("https://localhost:8081", "C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==");
+        _cl = new CosmosClient(cosmosdbUrl, cosmosdbKey);
+        InitializeDatabaseAndContainer().Wait();
+    }
+
+    public EventView(string cosmosdbUrl, TokenCredential credential)
+    {
+        _cl = new CosmosClient(cosmosdbUrl, credential);
         InitializeDatabaseAndContainer().Wait();
     }
 
@@ -1005,7 +1039,7 @@ public class EventView
         _cn = _db.CreateContainerIfNotExistsAsync("views", "/streamid").Result;
     }
 
-    public async Task<dynamic> SaveViewAsync<T>(string streamId, View<T> view, string? etag)
+    public async Task<dynamic> SaveViewAsync<T>(string streamId, View<T> view, string etag)
     {
         var partitionKey = new PartitionKey(streamId);
 
@@ -1044,7 +1078,7 @@ public class EventView
         }
     }
 
-    public async Task<(dynamic Resource, string? ETag)> LoadViewAsync<T>(string streamid)
+    public async Task<(dynamic Resource, string ETag)> LoadViewAsync<T>(string streamid)
     {
         var partitionKey = new PartitionKey(streamid);
 
@@ -1058,7 +1092,7 @@ public class EventView
             return (new View<T>(), null);
         }
     }
-    public async Task<T?> QueryItemAsync<T>(string query, Dictionary<string, object>? parameters = null)
+    public async Task<T> QueryItemAsync<T>(string query, Dictionary<string, object> parameters = null)
     {
         var queryDefinition = new QueryDefinition(query);
 
@@ -1087,6 +1121,6 @@ public class EventView
             await _cn.DeleteItemAsync<T>(eventId, new PartitionKey(streamId));
             return true;
         }
-        catch (Exception ex) { return false; }
+        catch (Exception) { return false; }
     }
 }

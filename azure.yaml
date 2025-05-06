@@ -21,9 +21,45 @@ hooks:
     run: |
 
 
-      Write-Output "Step 3: CosmosDB RBAC assignment"
+      Write-Output "Step 2: RBAC assignments"
       az cosmosdb sql role assignment create --account-name $env:COSMOS_NAME --resource-group $env:RGNAME  --scope '/' --principal-id $env:USER --role-definition-id $env:COSMOS_ROLE1 --output none
       az cosmosdb sql role assignment create --account-name $env:COSMOS_NAME --resource-group $env:RGNAME  --scope '/' --principal-id $env:USER --role-definition-id $env:COSMOS_ROLE2 --output none
 
 
+      #Cognitive Services Speech User - f2dc8367-1007-4938-bd23-fe263f013447
+      az role assignment create --assignee $env:USER  --role "Cognitive Services Speech User" --scope $env:SPEECH_SERVICE_RESOURCE_ID
+
+      #Azure AI Developer -  64702f94-c441-49e6-a78b-ef80e0188fee
+      az role assignment create --assignee $env:USER  --role "Azure AI Developer" --scope $env:OPENAI_RESOURCE_ID
+      
+      $appSettings = @"
+      {
+        "ApiSettings": {
+          "ApiKey": "",
+          "ApiEndPointUrl": "$env:OPENAI_SERVICE_URI",
+          "ApiModelName": "gpt-35-turbo",
+          "SpeechServiceEndPoint": "$env:SPEECH_SERVICE_URI",
+          "SpeechResourceID": "$env:SPEECH_SERVICE_RESOURCE_ID",
+          "SpeechServiceKey": "",
+          "SpeechServiceRegion": "$env:AZURE_LOCATION"
+        },
+        "CosmosDbSettings": {
+          "CosmosDbUrl": "$env:COSMOS_URI",
+          "CosmosDbKey": ""
+        }
+      }
+      "@
       Write-Output "Finished successful"
+      Write-Output "Step 3: Update app settings"
+      Write-Output $appSettings
+
+      Write-Output "Do you want to update the app settings? (y/n)"
+      $input = Read-Host
+      if ($input -eq "y") {
+        $appSettings | Out-File -FilePath "./src/consoleapp/appsettings.json" -Encoding utf8 -Force
+        Write-Output "App settings updated"
+      } else {
+        Write-Output "App settings not updated"
+      }
+
+      

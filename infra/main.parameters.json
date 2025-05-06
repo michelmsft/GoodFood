@@ -8,13 +8,6 @@
       "location": {
         "value": "${AZURE_LOCATION}"
       },
-
-      "ailocation": {
-        "value": "${AZURE_LOCATION_AI}",
-        "metadata": {
-          "type": "location"
-        }
-      },
       "IP": {
         "value": "${IP}"
       },    
