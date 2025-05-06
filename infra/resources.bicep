@@ -8,7 +8,6 @@ param privateIP string
 @description('Id of the user or app to assign application roles')
 param principalId string
 
-var abbrs = loadJsonContent('./abbreviations.json')
 var resourceToken = uniqueString(subscription().id, resourceGroup().id, location)
 var cosmos_acc_name=  'cosmos-${resourceToken}'
 var openAIName = 'openai-${resourceToken}'
@@ -27,23 +26,6 @@ var deployments = [
     raiPolicyName: 'openai-policy'
   }
 ]
-
-
-// // Monitor application with Azure Monitor
-// module monitoring 'br/public:avm/ptn/azd/monitoring:0.1.0' = {
-//   name: 'monitoring'
-//   params: {
-//     logAnalyticsName: '${abbrs.operationalInsightsWorkspaces}${resourceToken}'
-//     applicationInsightsName: '${abbrs.insightsComponents}${resourceToken}'
-//     applicationInsightsDashboardName: '${abbrs.portalDashboards}${resourceToken}'
-//     location: location
-//     tags: tags
-//   }
-// }
-
-
-
-
 
 @description('Creates an Azure OpenAI resource.')
 module openAI './modules/cognitive.bicep' = {
@@ -152,9 +134,6 @@ resource cosmosdb 'Microsoft.DocumentDB/databaseAccounts@2024-12-01-preview' = {
     }
   }
 }
-
-
-
 
 
 resource cosmosdb_db 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2024-12-01-preview' = {
@@ -295,7 +274,6 @@ resource appendToStreamStoredProcs 'Microsoft.DocumentDB/databaseAccounts/sqlDat
 }
 
 
-
 resource cosmos_role1 'Microsoft.DocumentDB/databaseAccounts/sqlRoleDefinitions@2024-12-01-preview' = {
   parent: cosmosdb
   name: '00000000-0000-0000-0000-000000000001'
@@ -393,14 +371,12 @@ resource sperimeters 'Microsoft.Network/networkSecurityPerimeters@2023-08-01-pre
   properties: {}
 }
 
-
 resource sperimeters_profile 'Microsoft.Network/networkSecurityPerimeters/profiles@2023-08-01-preview' = {
   parent: sperimeters
   name: 'userProfile'
   location: location
   properties: {}
 }
-
 
 resource sperimeters_profile_LocalAddress 'Microsoft.Network/networkSecurityPerimeters/profiles/accessRules@2023-08-01-preview' = {
   parent: sperimeters_profile
@@ -417,8 +393,6 @@ resource sperimeters_profile_LocalAddress 'Microsoft.Network/networkSecurityPeri
   }
 }
 
-
-
 resource spcosmos 'Microsoft.Network/networkSecurityPerimeters/resourceAssociations@2023-08-01-preview' = {
   parent: sperimeters
   name: '${sperimeters_acc_name}cosmos'
@@ -432,7 +406,6 @@ resource spcosmos 'Microsoft.Network/networkSecurityPerimeters/resourceAssociati
     accessMode: 'Learning'
   }
 }
-
 
 
 output OPENAI_RESOURCE_ID string = openAI.outputs.id

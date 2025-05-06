@@ -133,7 +133,6 @@ string authorizationToken = $"aad#{speechResourceId}#{token}";
 
 SpeechConfig speechConfig = SpeechConfig.FromAuthorizationToken(authorizationToken, SpeechApiRegion);
 
-        
 do
 {
 
@@ -161,38 +160,30 @@ do
 
     }
 
-
-
     //get the response from AI
-
     var result = await chatCompletionService.GetChatMessageContentAsync(
         chatHistory,
         executionSettings: settings,
         kernel: kernel);
 
     //print the LLM response
-
     Console.ForegroundColor = ConsoleColor.Green;
     Console.WriteLine($"GoodFood : {result}");
     Console.ResetColor();
 
 
     // Regex pattern to match text enclosed within triple backticks
-
     string pattern = @"(\n\|.*\n)(\|[-| ]+\n)(\|.*\n)*";
 
     // Replace the matched segment with an empty string
-
     string textToRead = Regex.Replace(result.Content, pattern, "\n", RegexOptions.Singleline);
 
     // using speech synthetizer to read aloud the model output
-
     using var synthesizer = new SpeechSynthesizer(speechConfig);
     var speech = await synthesizer.SpeakTextAsync(textToRead);
 
 
     //add the message from the agent to the chart history
-
     chatHistory.AddMessage(result.Role, result.Content ?? string.Empty);
 } while (!string.IsNullOrEmpty(userInput));
 
