@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+name: tdd-good-food
+metadata:
+    template: tdd-good-food@0.0.1
+
+infra:
+  provider: "bicep"
+hooks:
+  preup: 
+    shell: pwsh
+    interactive: true
+    run: |      
+      $ip = (Invoke-WebRequest -Uri "http://ifconfig.me/ip").Content.Trim()
+      $ipm = ([IPAddress] (([IPAddress] $ip).Address -band ([IPAddress] "255.255.255.0").Address)).IPAddressToString + '/24'
+      azd env set IP $ipm
+
+  postdeploy:
+    shell: pwsh
+    interactive: true
+    run: |
+
+
+      Write-Output "Step 2: RBAC assignments"
+      az cosmosdb sql role assignment create --account-name $env:COSMOS_NAME --resource-group $env:RGNAME  --scope '/' --principal-id $env:USER --role-definition-id $env:COSMOS_ROLE1 --output none
+      az cosmosdb sql role assignment create --account-name $env:COSMOS_NAME --resource-group $env:RGNAME  --scope '/' --principal-id $env:USER --role-definition-id $env:COSMOS_ROLE2 --output none
+
+
+      #Cognitive Services Speech User - f2dc8367-1007-4938-bd23-fe263f013447
+      az role assignment create --assignee $env:USER  --role "Cognitive Services Speech User" --scope $env:SPEECH_SERVICE_RESOURCE_ID
+
+      #Azure AI Developer -  64702f94-c441-49e6-a78b-ef80e0188fee
+      az role assignment create --assignee $env:USER  --role "Azure AI Developer" --scope $env:OPENAI_RESOURCE_ID
+      
+      $appSettings = @"
+      {
+        "ApiSettings": {
+          "ApiKey": "",
+          "ApiEndPointUrl": "$env:OPENAI_SERVICE_URI",
+          "ApiModelName": "gpt-35-turbo",
+          "SpeechServiceEndPoint": "$env:SPEECH_SERVICE_URI",
+          "SpeechResourceID": "$env:SPEECH_SERVICE_RESOURCE_ID",
+          "SpeechServiceKey": "",
+          "SpeechServiceRegion": "$env:AZURE_LOCATION"
+        },
+        "CosmosDbSettings": {
+          "CosmosDbUrl": "$env:COSMOS_URI",
+          "CosmosDbKey": ""
+        }
+      }
+      "@
+      Write-Output "Finished successful"
+      Write-Output "Step 3: Update app settings"
+      Write-Output $appSettings
+
+      Write-Output "Do you want to update the app settings? (y/n)"
+      $input = Read-Host
+      if ($input -eq "y") {
+        $appSettings | Out-File -FilePath "./src/consoleapp/appsettings.json" -Encoding utf8 -Force
+        Write-Output "App settings updated"
+      } else {
+        Write-Output "App settings not updated"
+      }
+
+      
