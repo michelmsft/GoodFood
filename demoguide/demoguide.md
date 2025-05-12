@@ -16,53 +16,66 @@
             border: 1px solid lightgray; 
             margin: 5px;">
 
-**Note:** Below demo steps should be used **as a guideline** for doing your own demos. Please consider contributing to add additional demo steps.
+# Fast Food Drive thru Operator Ai Agent with Semantic Kernel and GPT 3.5 Turbo
+### **Fast Food Drive-Thru Operator AI Agent**  
+
+This AI-powered **Fast Food Drive-Thru Operator** leverages **Semantic Kernel** and **Azure OpenAI GPT-3.5 turbo** to streamline customer interactions, improve efficiency, and automate order processing.  
+![image](https://github.com/user-attachments/assets/e61f1162-93d1-4847-a57a-bbb6de614d34)
+
+This AI agent enhances the **drive-thru experience** with fast, intelligent, and voice-driven automation! 
 </div>
 
 [comment]: <> (this is the section for the Tip: item; consider adding a Tip, or remove the section between <div> and </div> if there is no tip)
 
 ***
-### 1. What Resources are getting deployed
-<add a one-paragraph lengthy description of what the scenario is about, and what is getting deployed>
+### 1. Resources Being Deployed
 
-Provide a bullet list of the Resource Group and all deployed resources with name and brief functionality within the scenario. 
+This solution deploys a complete set of Azure services to support an intelligent, voice-enabled food ordering experience, securely hosted within a defined network boundary.
 
-* rg-%azdenvironmentname - Azure Resource Group.
-* TMLABAppSvcPlan-%region% - Azure App Service Plan in each region
-* TMLABWebApp-%region% - Azure App Service with static HTML webpage in each region
-* TMProfile - Traffic Manager Profile with endpoints
+- **Conversational AI & Order Management**  
+  Utilizes Azure OpenAI GPT-3.5 Turbo, integrated with the Semantic Kernel Planner, to deliver intelligent, natural conversations and automate order processing workflows.
 
-<add a screenshot of the deployed Resource Group with resources>
+- **NoSQL Data Storage**  
+  Azure Cosmos DB provides a highly scalable, low-latency database for storing and retrieving order data and customer interactions.
 
-<img src="https://raw.githubusercontent.com/petender/azd-tdd-starter/refs/heads/main/demoguide/TM/screenshot1.png" alt="Traffic Manager Resource Group" style="width:70%;">
-<br></br>
+- **Real-Time Voice Interaction**  
+  Azure AI Speech Service (Speech Synthesis) enables the app to communicate with users via natural-sounding voice responses during the ordering process.
 
-<img src="https://raw.githubusercontent.com/petender/azd-tdd-starter/refs/heads/main/demoguide/TM/screenshot2.png" alt="Traffic Manager Profile with Endpoints" style="width:70%;">
-<br></br>
+- **Network Security Perimeter (NSP)**  
+  A logical boundary is established to isolate and secure all deployed services from unauthorized access, following best practices for perimeter-based security.
 
-<img src="https://raw.githubusercontent.com/petender/azd-tdd-starter/refs/heads/main/demoguide/TM/screenshot3.png" alt="Sample WebApp" style="width:70%;">
-<br></br>
+---
+
+#### 📦 Deployed Azure Resources
+
+| Resource Name Pattern | Description |
+|-----------------------|-------------|
+| `rg-%azdenvironmentname%` | Azure Resource Group to contain all resources |
+| `cosmos-%suffix%`          | Azure Cosmos DB account |
+| `openai-%suffix%`          | Azure OpenAI service |
+| `speech-%suffix%`          | Azure AI Speech Service |
+| `sp-%suffix%`              | Network Security Perimeter definition |
+
+
+
+![image](https://github.com/user-attachments/assets/953b123c-0f35-43a3-9db2-84b98518a6ee)
+
+
 
 ### 2. What can I demo from this scenario after deployment
 
-Provide clear step-by-step instructions on what can be demoed after the scenario got deployed. If your demo requires additional manual steps to configure or update settings or make changes to the deployed resources, please mention it here.
+After deploying the solution, you can demonstrate the following interactive features:
 
-Add screenshots where relevant. The can be stored in their own subfolder under the demoguide folder.
+- Start the application by running `dotnet run`, and initiate the conversation with a greeting, such as:  
+  `"Hello!"`
 
+- Ask about the available food options, for example:  
+  `"What's on the menu right now?"`
 
+- Continue the dialogue naturally, placing an order through the conversational interface.
 
-[comment]: <> (this is the closing section of the demo steps. Please do not change anything here to keep the layout consistant with the other demoguides.)
-<br></br>
-***
-<div style="background: lightgray; 
-            font-size: 14px; 
-            color: black;
-            padding: 5px; 
-            border: 1px solid lightgray; 
-            margin: 5px;">
+- For full visibility during the demo, be sure to show the **Cosmos DB `views` container** in a split-screen view, so observers can see real-time data updates as the interaction progresses.
 
-**Note:** This is the end of the current demo guide instructions.
-</div>
-
+![image](https://github.com/user-attachments/assets/d2a25800-3d03-411d-b3b9-7183d05ca7c5)
 
 
