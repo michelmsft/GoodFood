@@ -66,7 +66,7 @@ This solution deploys a complete set of Azure services to support an intelligent
 
 After deploying the solution, you can demonstrate the following interactive features:
 
-- Start the application by running `dotnet run`, and initiate the conversation with a greeting, such as:  
+- Start the application by running `dotnet run`, and initiate the conversation with a greeting **into the active microphone**, such as:  
   `"Hello!"`
 
 - Ask about the available food options, for example:  
